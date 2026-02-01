@@ -44,7 +44,7 @@
 ## 📥 Installation
 
 ### **Option 1: Easy (Recommended)**
-**[Download the latest .exe](https://github.com/omnitx/charms-bar/releases)**  
+**[Download the latest .exe](https://github.com/OmniTx/CharmsBar/releases)**  
 Just download the compiled executable and run it. No AutoHotkey installation is required.
 
 ### **Option 2: Advanced (Source Script)**
