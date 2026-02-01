@@ -26,7 +26,6 @@ Global CustomColor    := IniRead(IniFile, "Theme", "CustomColor", "101010")
 Global BgImage        := IniRead(IniFile, "Theme", "BgImage", "")
 Global GradientStr    := IniRead(IniFile, "Theme", "GradientStr", "2E3192,1BFFFF")
 Global ForceText      := IniRead(IniFile, "Theme", "ForceText", "Auto")
-Global BlurMode       := IniRead(IniFile, "Theme", "BlurMode", "Auto")
 
 ; Apps
 Global AppA_Name := IniRead(IniFile, "AppA", "Name", "Notepad")
@@ -310,99 +309,139 @@ CreateCharmsBar() {
 ; SETTINGS GUI
 ; ==============================================================================
 ShowSettings(*) {
-    Global ConfigGui, SearchProvider, EverythingPath, BackgroundMode, CustomColor, LaunchOnBoot, BgImage, GradientStr, ForceText, BlurMode
+    Global ConfigGui, SearchProvider, EverythingPath, BackgroundMode, CustomColor, LaunchOnBoot, BgImage, GradientStr, ForceText
     Global AppA_Name, AppA_Path, AppB_Name, AppB_Path, AppC_Name, AppC_Path
-    
+
     HideCharms()
-    ConfigGui := Gui("+AlwaysOnTop", "Charms Settings")
-    ConfigGui.SetFont("s9", "Segoe UI")
+    ConfigGui := Gui(, "Charms Settings")
+    ConfigGui.BackColor := "202020"
+    ConfigGui.SetFont("s10 cWhite", "Segoe UI")
     
-    Tabs := ConfigGui.Add("Tab3", "w420 h320", ["General", "Appearance", "Apps", "About"])
+    ; DWMWA_USE_IMMERSIVE_DARK_MODE (20)
+    DllCall("dwmapi\DwmSetWindowAttribute", "Ptr", ConfigGui.Hwnd, "Int", 20, "Int*", 1, "Int", 4)
+
+    ; Sidebar Background
+    ConfigGui.Add("Text", "x0 y0 w140 h450 Background151515")
     
-    ; --- GENERAL TAB ---
-    Tabs.UseTab(1)
-    ConfigGui.Add("GroupBox", "x20 y50 w380 h80", "Startup")
-    ConfigGui.Add("Checkbox", "xp+15 yp+25 vCbBoot Checked" LaunchOnBoot, "Run at Startup (No UAC)")
+    ; Navigation
+    NavBtns := Map()
+    Pages := Map()
+    CurrentPage := "General"
     
-    ConfigGui.Add("GroupBox", "x20 y+20 w380 h100", "Search Provider")
+    SwitchPage(Name) {
+        For PName, Controls in Pages
+            For Ctrl in Controls 
+                Ctrl.Visible := (PName = Name)
+        
+        For BtnName, Btn in NavBtns {
+            Btn.Opt((BtnName=Name) ? "Background353535" : "Background151515")
+            Btn.SetFont((BtnName=Name) ? "w700" : "w400")
+        }
+    }
+
+    AddNav(Label, Y) {
+        Btn := ConfigGui.Add("Text", "x0 y" Y " w140 h40 Center +0x200 BackgroundTrans cWhite", Label)
+        Btn.OnEvent("Click", (*) => SwitchPage(Label))
+        NavBtns[Label] := Btn
+    }
+    
+    AddNav("General", 50)
+    AddNav("Appearance", 95)
+    AddNav("Apps", 140)
+    AddNav("About", 185)
+
+    ; --- GENERAL PAGE ---
+    Pages["General"] := []
+    C := Pages["General"]
+    C.Push(ConfigGui.Add("GroupBox", "x160 y20 w300 h80 cWhite", "Startup"))
+    C.Push(ConfigGui.Add("Checkbox", "xp+15 yp+25 vCbBoot Checked" LaunchOnBoot, "Run at Startup (No UAC)"))
+    
+    C.Push(ConfigGui.Add("GroupBox", "x160 y+20 w300 h100 cWhite", "Search Provider"))
     RadWin := ConfigGui.Add("Radio", "xp+15 yp+25 Checked" (SearchProvider="Windows"), "Windows Search")
     RadEvt := ConfigGui.Add("Radio", "x+20 yp Checked" (SearchProvider="Everything"), "Everything Search")
-    ConfigGui.Add("Text", "x35 y+10 cGray", "Path:")
-    EdtEvt := ConfigGui.Add("Edit", "x+5 yp-3 w240", EverythingPath)
-    BtnEvt := ConfigGui.Add("Button", "x+5 yp-1 w30", "...")
+    C.Push(RadWin), C.Push(RadEvt)
+    C.Push(ConfigGui.Add("Text", "x175 y+10 c80D0FF", "Path:"))
+    EdtEvt := ConfigGui.Add("Edit", "x+5 yp-3 w180 Background404040 cWhite", EverythingPath)
+    BtnEvt := ConfigGui.Add("Text", "x+5 yp w25 h20 Center +0x200 Background404040 cWhite", "...")
     BtnEvt.OnEvent("Click", (*) => (Sel := FileSelect(3,, "Select Everything.exe", "Executables (*.exe)"), (Sel && EdtEvt.Value := Sel)))
+    C.Push(EdtEvt), C.Push(BtnEvt)
 
-    ; --- APPEARANCE TAB ---
-    Tabs.UseTab(2)
-    ConfigGui.Add("Text", "x30 y50", "Background Mode:")
+    ; --- APPEARANCE PAGE ---
+    Pages["Appearance"] := []
+    C := Pages["Appearance"]
+    C.Push(ConfigGui.Add("Text", "x160 y30 cWhite", "Background Mode:"))
     DDLMode := ConfigGui.Add("DropDownList", "x+10 yp-3 w150 vDDLMode Choose" (BackgroundMode="Dark"?1:BackgroundMode="Light"?2:BackgroundMode="Custom"?3:BackgroundMode="Image"?4:5), ["Dark","Light","Custom","Image","Gradient"])
+    C.Push(DDLMode)
     
-    ConfigGui.Add("Text", "x30 y+15", "Blur Effect:")
-    DDLBlur := ConfigGui.Add("DropDownList", "x+10 yp-3 w150 Choose" (BlurMode="Auto"?1:BlurMode="Acrylic"?2:BlurMode="Blur"?3:4), ["Auto","Acrylic","Blur","None"])
-    
-    ConfigGui.Add("Text", "x30 y+15", "Text Color:")
+    C.Push(ConfigGui.Add("Text", "x160 y+15 cWhite", "Text Color:"))
     DDLText := ConfigGui.Add("DropDownList", "x+10 yp-3 w150 Choose" (ForceText="Auto"?1:ForceText="White"?2:3), ["Auto","White","Black"])
-    
-    ConfigGui.Add("GroupBox", "x20 y+20 w380 h135", "Details")
-    
-    ConfigGui.Add("Text", "x35 y+25", "Solid Hex:")
-    E_Hex := ConfigGui.Add("Edit", "x+10 yp-3 w80", CustomColor)
-    
-    ConfigGui.Add("Text", "x35 y+15", "Gradient:")
-    E_Grad := ConfigGui.Add("Edit", "x+10 yp-3 w180", GradientStr)
-    
-    ConfigGui.Add("Text", "x35 y+15", "Image Path:")
-    E_Img := ConfigGui.Add("Edit", "x+10 yp-3 w200", BgImage)
-    BtnImg := ConfigGui.Add("Button", "x+5 yp-1 w30", "...")
-    BtnImg.OnEvent("Click", (*) => (Sel := FileSelect(3,, "Select Image", "Images (*.jpg; *.png; *.bmp)"), (Sel && E_Img.Value := Sel)))
+    C.Push(DDLText)
 
-    ; --- APPS TAB ---
-    Tabs.UseTab(3)
-    ConfigGui.Add("Text", "x20 y45 w380 Center cGray", "Configure Quick Launch Apps")
+    C.Push(ConfigGui.Add("GroupBox", "x160 y+20 w300 h140 cWhite", "Details"))
+    C.Push(ConfigGui.Add("Text", "xp+15 yp+25 c80D0FF", "Solid Hex:"))
+    E_Hex := ConfigGui.Add("Edit", "x+10 yp-3 w80 Background404040 cWhite", CustomColor)
+    C.Push(E_Hex)
+    
+    C.Push(ConfigGui.Add("Text", "x175 y+15 c80D0FF", "Gradient:"))
+    E_Grad := ConfigGui.Add("Edit", "x+10 yp-3 w140 Background404040 cWhite", GradientStr)
+    C.Push(E_Grad)
+    
+    C.Push(ConfigGui.Add("Text", "x175 y+15 c80D0FF", "Image Path:"))
+    E_Img := ConfigGui.Add("Edit", "x+10 yp-3 w140 Background404040 cWhite", BgImage)
+    BtnImg := ConfigGui.Add("Text", "x+5 yp w25 h20 Center +0x200 Background404040 cWhite", "...")
+    BtnImg.OnEvent("Click", (*) => (Sel := FileSelect(3,, "Select Image", "Images (*.jpg; *.png; *.bmp)"), (Sel && E_Img.Value := Sel)))
+    C.Push(E_Img), C.Push(BtnImg)
+
+    ; --- APPS PAGE ---
+    Pages["Apps"] := []
+    C := Pages["Apps"]
+    C.Push(ConfigGui.Add("Text", "x160 y30 w300 Center c80D0FF", "Configure Quick Launch Apps"))
     
     AddAppRowUI(Label, NameVar, PathVar, YPos) {
-        ConfigGui.Add("Text", "x30 y" YPos " w20", Label)
-        E_Name := ConfigGui.Add("Edit", "x+5 yp-3 w80", NameVar)
-        E_Path := ConfigGui.Add("Edit", "x+5 yp w180", PathVar)
-        Btn := ConfigGui.Add("Button", "x+5 yp w30", "...")
+        C.Push(ConfigGui.Add("Text", "x160 y" YPos " w20 cWhite", Label))
+        E_Name := ConfigGui.Add("Edit", "x+5 yp-3 w70 Background404040 cWhite", NameVar)
+        E_Path := ConfigGui.Add("Edit", "x+5 yp w150 Background404040 cWhite", PathVar)
+        Btn := ConfigGui.Add("Text", "x+5 yp w25 h20 Center +0x200 Background404040 cWhite", "...")
         Btn.OnEvent("Click", (*) => (Sel := FileSelect(3,, "Select App"), (Sel && E_Path.Value := Sel)))
+        C.Push(E_Name), C.Push(E_Path), C.Push(Btn)
         return [E_Name, E_Path]
     }
 
-    CtrlsA := AddAppRowUI("A:", AppA_Name, AppA_Path, "70")
-    CtrlsB := AddAppRowUI("B:", AppB_Name, AppB_Path, "p+30")
-    CtrlsC := AddAppRowUI("C:", AppC_Name, AppC_Path, "p+30")
+    CtrlsA := AddAppRowUI("A:", AppA_Name, AppA_Path, 70)
+    CtrlsB := AddAppRowUI("B:", AppB_Name, AppB_Path, 110)
+    CtrlsC := AddAppRowUI("C:", AppC_Name, AppC_Path, 150)
 
-    ; --- ABOUT TAB ---
-    Tabs.UseTab(4)
-    ConfigGui.SetFont("s14 bold", "Segoe UI")
-    ConfigGui.Add("Text", "x20 y60 w380 Center", "Charms Bar Platinum")
-    ConfigGui.SetFont("s10 norm", "Segoe UI")
-    ConfigGui.Add("Text", "x20 y+5 w380 Center cGray", "Version 21")
-    
-    ConfigGui.Add("Text", "x20 y+30 w380 Center", "Created by Imran Ahmed")
-    ConfigGui.SetFont("s9 underline cBlue")
-    LinkA := ConfigGui.Add("Text", "x20 y+2 w380 Center", "github.com/omnitx")
+    ; --- ABOUT PAGE ---
+    Pages["About"] := []
+    C := Pages["About"]
+    ConfigGui.SetFont("s16 bold")
+    C.Push(ConfigGui.Add("Text", "x160 y50 w300 Center cWhite", "Charms Bar Platinum"))
+    ConfigGui.SetFont("s11 norm")
+    C.Push(ConfigGui.Add("Text", "x160 y+5 w300 Center c80D0FF", "Version 21"))
+    C.Push(ConfigGui.Add("Text", "x160 y+30 w300 Center cWhite", "Created by Imran Ahmed"))
+    ConfigGui.SetFont("s10 underline c80C0FF")
+    LinkA := ConfigGui.Add("Text", "x160 y+5 w300 Center", "github.com/omnitx")
     LinkA.OnEvent("Click", (*) => Run("https://github.com/omnitx"))
+    C.Push(LinkA)
+    ConfigGui.SetFont("s10 norm cWhite")
+    C.Push(ConfigGui.Add("Text", "x160 y+20 w300 Center", "Co-Developed with Antigravity"))
     
-    ConfigGui.SetFont("s10 norm cBlack")
-    ConfigGui.Add("Text", "x20 y+20 w380 Center", "Co-Developed with Antigravity")
-    ConfigGui.Add("Text", "x20 y+2 w380 Center cGray s8", "(Google DeepMind)")
+    ConfigGui.SetFont("s8 cGray")
+    C.Push(ConfigGui.Add("Text", "x160 y+2 w300 Center", "(Google DeepMind)"))
 
-    ; --- BOTTOM BUTTONS ---
-    Tabs.UseTab()
-    BtnSave := ConfigGui.Add("Button", "x130 y360 w160 h35", "Save & Apply")
+    ; --- SAVE BUTTON ---
+    BtnSave := ConfigGui.Add("Text", "x230 y300 w160 h35 Center +0x200 Background404040 cWhite", "Save & Apply")
     BtnSave.OnEvent("Click", SaveAll)
-
-    ConfigGui.Show()
-
+    
+    SwitchPage("General")
+    ConfigGui.Show("w480 h350")
+    
     SaveAll(*) {
         Global BackgroundMode := DDLMode.Text
         Global CustomColor := StrReplace(E_Hex.Value, "#", "")
         Global BgImage := E_Img.Value
         Global GradientStr := E_Grad.Value
         Global ForceText := DDLText.Text
-        Global BlurMode := DDLBlur.Text
         Global LaunchOnBoot := ConfigGui["CbBoot"].Value
         
         Global SearchProvider := RadWin.Value ? "Windows" : "Everything"
@@ -422,7 +461,6 @@ ShowSettings(*) {
         IniWrite(BgImage, IniFile, "Theme", "BgImage")
         IniWrite(GradientStr, IniFile, "Theme", "GradientStr")
         IniWrite(ForceText, IniFile, "Theme", "ForceText")
-        IniWrite(BlurMode, IniFile, "Theme", "BlurMode")
         
         IniWrite(AppA_Name, IniFile, "AppA", "Name"), IniWrite(AppA_Path, IniFile, "AppA", "Path")
         IniWrite(AppB_Name, IniFile, "AppB", "Name"), IniWrite(AppB_Path, IniFile, "AppB", "Path")
