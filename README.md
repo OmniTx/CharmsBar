@@ -1,7 +1,9 @@
 # Charms Bar Platinum
 
-![Windows 11](https://img.shields.io/badge/Windows-11-0078D6?style=for-the-badge&logo=windows&logoColor=white)
-![Windows 10](https://img.shields.io/badge/Windows-10-0078D6?style=for-the-badge&logo=windows&logoColor=white)
+![Charms Bar Banner](https://via.placeholder.com/1200x300?text=Charms+Bar+Platinum)
+
+![Windows 11](https://img.shields.io/badge/Windows_11-0078D6?style=for-the-badge&logo=windows&logoColor=white)
+![Windows 10](https://img.shields.io/badge/Windows_10-0078D6?style=for-the-badge&logo=windows&logoColor=white)
 ![AutoHotkey](https://img.shields.io/badge/AutoHotkey-v2.0-334455?style=for-the-badge&logo=autohotkey&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
@@ -41,6 +43,11 @@
 
 ## 📥 Installation
 
+### **Option 1: Easy (Recommended)**
+**[Download the latest .exe](https://github.com/omnitx/charms-bar/releases)**  
+Just download the compiled executable and run it. No AutoHotkey installation is required.
+
+### **Option 2: Advanced (Source Script)**
 1. **Download AutoHotkey v2**: [Get it here](https://www.autohotkey.com/).
 2. **Download the Script**: Save `charms-phi.ahk` to your desired folder.
 3. **Run**: Double-click the file.
