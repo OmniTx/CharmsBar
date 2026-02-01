@@ -605,6 +605,14 @@ GetImageSize(Path, &W, &H) {
     }
 }
 
+OnExit(ExitFunc)
+
+ExitFunc(ExitReason, ExitCode) {
+    Global ConfigGui
+    if IsSet(ConfigGui) && ConfigGui
+        ConfigGui.Destroy()
+}
+
 HotCornerWatch() {
     Global OpenedByHover, CharmsBar, CornerHoverStart, MonLeft, MonTop, MonRight, MonBottom
     if (IsWindowFullScreen(WinActive("A"))) {
