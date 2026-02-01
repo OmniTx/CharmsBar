@@ -1,61 +1,82 @@
-# Charms Bar Platinum (AHK)
+# Charms Bar Platinum
 
-A faithful and enhanced recreation of the Windows 8 Charms Bar for Windows 10 and 11, built with AutoHotkey v2. 
+![Windows 11](https://img.shields.io/badge/Windows-11-0078D6?style=for-the-badge&logo=windows&logoColor=white)
+![Windows 10](https://img.shields.io/badge/Windows-10-0078D6?style=for-the-badge&logo=windows&logoColor=white)
+![AutoHotkey](https://img.shields.io/badge/AutoHotkey-v2.0-334455?style=for-the-badge&logo=autohotkey&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-## Features & Options
-
-### 1. **Search Integration**
-- **Windows Search**: Default. Opens the native Windows Start Menu search.
-- **Everything Search**: **(Crucial Feature)** Seamlessly integrates with [Everything](https://www.voidtools.com/) by voidtools. If configured, clicking the Search icon launches Everything for instant file finding.
-    - *Why use this?* Windows Search can be slow. "Everything" is instant.
-
-### 2. **Startup & "No UAC" Mode**
-- **Launch on Boot**: Can be configured to start automatically with Windows.
-- **No UAC Prompt**: The script uses Windows Task Scheduler (`schtasks`) to bypass the annoying User Account Control (UAC) prompt on startup, ensuring silent and seamless activation.
-
-### 3. **Custom Apps (A, B, C)**
-- The bar includes 3 customizable quick-launch slots at the bottom.
-- You can assign **Name** (displayed on hover) and **Path** (exe to run) for each button via the Settings menu.
-
-### 4. **Theme & Appearance**
-- **Modes**:
-    - **Dark/Light**: Standard clean look.
-    - **Image**: Choose any image file to set as the background.
-    - **Gradient**: Define a start/end hex color for a static gradient.
-    - **Custom**: Set a specific solid hex color.
-- **Text Color**: Auto-detected or force White/Black for readability on custom backgrounds.
-
-### 5. **Tools & Media**
-- **Media**: Dedicated Volume Slider, Play/Pause, Next, Prev.
-- **Tools**: Quick access to **Snipping Tool**, **Calculator**, and **Task Manager**.
-
-### 6. **Multi-Monitor & Touch Support**
-- **Multi-Monitor**: The bar detects which monitor your mouse is on and opens on that specific screen, ensuring you can access it anywhere.
-- **Touch Friendly**: The interface features large, tap-friendly buttons and sliders, making it ideal for Windows tablets and touchscreens.
-
-## Configuration
-
-1. **Open Settings**: Open the Charms Bar (Win+C) -> Click the **Gear Icon** (bottom right).
-2. **Settings Menu**:
-    - **Run at Startup**: Toggles the Task Scheduler entry.
-    - **Search Provider**: Select "Windows" or "Everything". If "Everything", provide the path to `Everything.exe`.
-    - **Custom Apps**: Click "..." to browse for your favorite apps to plug into slots A, B, and C.
-    - **Appearance**: Select your preferred Background Mode and Colors.
-3. **Save**: Click "Save & Apply" to write changes to `CharmsSettings.ini` and reload immediately.
-
-## Usage
-- **Mouse**: Hover the cursor in the **top-right corner** of the screen for 0.4 seconds.
-- **Keyboard**: Press `Win+C` to toggle.
-- **Center Window**: Press `Win+Alt+C` to instantly center the active window on the screen.
-- **Touch**: Tap the corner or use `Win+C`. The UI is optimized for touch usage.
-
-## File Information
-- `CharmsSettings.ini`: configurations are saved here.
-- `No UAC`: Uses admin privileges only when setting up the task; runs silently afterwards.
+> **The missing Windows Charms Bar, reimagined for the modern era.**  
+> A sleek, touch-friendly, and fully customizable sidebar for Windows 10 and 11.
 
 ---
-**Credits**:
-- **Author**: Imran Ahmed
-    - GitHub: [omnitx](https://github.com/omnitx)
-    - Email: [imranomnitx@duck.com](mailto:imranomnitx@duck.com)
-- **Co-Developer**: Antigravity (Google DeepMind)
+
+## 🖼️ Gallery
+
+![Charms Bar Preview](https://via.placeholder.com/800x450?text=Charms+Bar+Preview)  
+*Clean, modern interface designed for both Mouse and Touch.*
+
+![Settings Panel](https://via.placeholder.com/800x450?text=Settings+Panel)  
+*Deep customization with a fully Dark Mode Settings Panel.*
+
+---
+
+## ✨ Features
+
+- **🚀 Instant Access**: Hover over the top-right corner or press `Win+C`.
+- **🎨 Deep Customization**:
+  - **Dark/Light Modes**: Matches your system aesthetic.
+  - **Custom Backgrounds**: Use solid colors, gradients, or your own images.
+  - **Aspect Fill**: Wallpaper support that fits perfectly without stretching.
+- **⚡ Quick Actions**:
+  - **Search**: Integrated with **Everything** or Windows Search.
+  - **System**: Quick access to Settings, Start, Clipboard, and Devices.
+  - **Tools**: Built-in shortcuts for Snip, Calculator, and Task Manager.
+- **📱 Touch Optimized**: Large, touch-friendly targets perfect for tablets.
+- **🔋 Power User Ready**:
+  - **Silent Startup**: Runs automatically without UAC prompts.
+  - **Multi-Monitor**: Appears on whichever screen you are using.
+  - **Portable**: Single script file using `CharmsSettings.ini`.
+
+---
+
+## 📥 Installation
+
+1. **Download AutoHotkey v2**: [Get it here](https://www.autohotkey.com/).
+2. **Download the Script**: Save `charms-phi.ahk` to your desired folder.
+3. **Run**: Double-click the file.
+4. **Setup**: The script will ask for Admin rights once to set up the high-priority task scheduler (for silent startup).
+
+---
+
+## ⚙️ Configuration
+
+Press `Win+C` to open the bar, then click the **Gear Icon** at the bottom.
+
+### **General**
+- **Startup**: Toggle "No UAC" startup.
+- **Search Provider**: Choose between native Windows Search or the ultra-fast **Everything**.
+
+### **Appearance**
+- **Mode**: Choose between *Dark, Light, Custom, Gradient, or Image*.
+- **Styling**: Tweak hex colors, gradients, and text visibility.
+
+### **Apps**
+- **Quick Launch**: Configure shortcuts for slots **A**, **B**, and **C** to your favorite apps.
+
+---
+
+## ⌨️ Shortcuts
+
+| Key Combo | Action |
+| :--- | :--- |
+| `Win + C` | Toggle Charms Bar |
+| `Win + Alt + C` | Center Active Window |
+| `Top-Right Corner` | Mouse Hover to Open |
+
+---
+
+## 👨‍💻 Credits
+
+**Created by:** Imran Ahmed  
+**Co-Developed with:** Antigravity (Google DeepMind)  
+**License:** MIT
