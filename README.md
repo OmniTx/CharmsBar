@@ -1,6 +1,6 @@
 # Charms Bar Platinum
 
-![Charms Bar Banner](https://via.placeholder.com/1200x300?text=Charms+Bar+Platinum)
+![Charms Bar Banner](images/header.jpg)
 
 ![Windows 11](https://img.shields.io/badge/Windows_11-0078D6?style=for-the-badge&logo=windows&logoColor=white)
 ![Windows 10](https://img.shields.io/badge/Windows_10-0078D6?style=for-the-badge&logo=windows&logoColor=white)
@@ -14,10 +14,10 @@
 
 ## 🖼️ Gallery
 
-![Charms Bar Preview](https://via.placeholder.com/800x450?text=Charms+Bar+Preview)  
+![Charms Bar Preview](images/charms-preview.jpg)  
 *Clean, modern interface designed for both Mouse and Touch.*
 
-![Settings Panel](https://via.placeholder.com/800x450?text=Settings+Panel)  
+![Settings Panel](images/charms-settings.jpg)  
 *Deep customization with a fully Dark Mode Settings Panel.*
 
 ---
@@ -49,7 +49,7 @@ Just download the compiled executable and run it. No AutoHotkey installation is 
 
 ### **Option 2: Advanced (Source Script)**
 1. **Download AutoHotkey v2**: [Get it here](https://www.autohotkey.com/).
-2. **Download the Script**: Save `charms-phi.ahk` to your desired folder.
+2. **Download the Script**: Save `charmsbar-phi.ahk` to your desired folder.
 3. **Run**: Double-click the file.
 4. **Setup**: The script will ask for Admin rights once to set up the high-priority task scheduler (for silent startup).
 
