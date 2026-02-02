@@ -1,6 +1,6 @@
 ﻿#Requires AutoHotkey v2.0
 ; ==============================================================================
-; Script: Charms Bar Platinum v21 (Static Gradient / No Animation)
+; Script: Charms Bar Platinum v22 (Static Gradient / Slide-in Animation)
 ; Features: Search Config | Static Multi-Point Gradient | Image BG | No UAC
 ; ==============================================================================
 
@@ -478,7 +478,7 @@ ShowSettings(*) {
     ConfigGui.SetFont("s16 bold")
     C.Push(ConfigGui.Add("Text", "x160 y50 w300 Center cWhite", "Charms Bar Platinum"))
     ConfigGui.SetFont("s11 norm")
-    C.Push(ConfigGui.Add("Text", "x160 y+5 w300 Center c80D0FF", "Version 21"))
+    C.Push(ConfigGui.Add("Text", "x160 y+5 w300 Center c80D0FF", "Version 22"))
     C.Push(ConfigGui.Add("Text", "x160 y+30 w300 Center cWhite", "Created by Imran Ahmed"))
     ConfigGui.SetFont("s10 underline c80C0FF")
     LinkA := ConfigGui.Add("Text", "x160 y+5 w300 Center", "github.com/omnitx")
