@@ -4,7 +4,8 @@
 ; Features: Search Config | Static Multi-Point Gradient | Image BG | No UAC
 ; ==============================================================================
 
-; --- FORCE ADMIN ---
+; --- FORCE ADMIN (Removed to prevent blocking other apps) ---
+; Script will run with User privileges by default unless elevated manually
 if not A_IsAdmin {
     try Run("*RunAs `"" A_ScriptFullPath "`"")
     ExitApp
@@ -26,6 +27,7 @@ Global CustomColor    := IniRead(IniFile, "Theme", "CustomColor", "101010")
 Global BgImage        := IniRead(IniFile, "Theme", "BgImage", "")
 Global GradientStr    := IniRead(IniFile, "Theme", "GradientStr", "2E3192,1BFFFF")
 Global ForceText      := IniRead(IniFile, "Theme", "ForceText", "Auto")
+Global VolumeStyle    := IniRead(IniFile, "Settings", "VolumeStyle", "Slider")
 
 ; Apps
 Global AppA_Name := IniRead(IniFile, "AppA", "Name", "Notepad")
@@ -38,7 +40,7 @@ Global AppC_Path := IniRead(IniFile, "AppC", "Path", "cmd.exe")
 ; --- State Variables ---
 Global CharmsBar := "", ConfigGui := ""
 Global OpenedByHover := false, CornerHoverStart := 0
-Global TimeCtl := "", AmPmCtl := "", DateCtl := "", VolTextCtl := ""
+Global TimeCtl := "", AmPmCtl := "", DateCtl := "", VolTextCtl := "", VolBg := "", VolIcon := "", VolOverlay := ""
 Global BtnA := "", BtnB := "", BtnC := "" 
 Global LastToolTip := "", Hue := 0 
 Global MonLeft := 0, MonTop := 0, MonRight := 0, MonBottom := 0
@@ -48,8 +50,12 @@ Global hGradientBitmap := 0, PicBg := ""
 ; Start Watchers
 SetTimer(HotCornerWatch, 100)
 OnMessage(0x0200, CheckTooltips)
+OnExit(ExitFunc)
+
 
 #c::ToggleCharmsBar(false)
+
+#!c::CenterActiveWindow()
 
 ; ==============================================================================
 ; HELPER: RUN AS USER
@@ -59,6 +65,12 @@ RunAsUser(Target, Args := "") {
         try Run(Target " " Args)
         return
     }
+    ; If we are not Admin, just Run normally (it is already User level)
+    if !A_IsAdmin {
+        try Run(Target " " Args)
+        return
+    }
+    ; If we ARE Admin, try to demote to User via Shell.Application
     try {
         Shell := ComObject("Shell.Application")
         Desktop := Shell.Windows.FindWindowSW(0, 0, 8, 0, 1) 
@@ -159,7 +171,7 @@ ToggleCharmsBar(fromHover := false) {
 }
 
 CreateCharmsBar() {
-    Global CharmsBar, TimeCtl, AmPmCtl, DateCtl, BtnA, BtnB, BtnC, VolTextCtl
+    Global CharmsBar, TimeCtl, AmPmCtl, DateCtl, BtnA, BtnB, BtnC, VolTextCtl, VolBg, VolIcon, VolOverlay
     Global hGradientBitmap, PicBg
     Global MonLeft, MonTop, MonRight, MonBottom, CurrentBarWidth
 
@@ -244,7 +256,7 @@ CreateCharmsBar() {
     CharmsBar.Add("Text", "x0 y+10 w" CurrentBarWidth " Center BackgroundTrans", "MEDIA")
     CharmsBar.SetFont("s" Round(16*Scale) " c" TextColor, "Segoe MDL2 Assets")
     BW := Round(40 * Scale)
-    StartX := (CurrentBarWidth - (BW * 3)) / 2
+    StartX := Round((CurrentBarWidth - (BW * 3)) / 2)
     
     PrevBtn := CharmsBar.Add("Text", "x" StartX " y+5 w" BW " h30 Center +0x200 BackgroundTrans c" TextColor, Chr(0xE892))
     PrevBtn.OnEvent("Click", (*) => Send("{Media_Prev}"))
@@ -253,10 +265,45 @@ CreateCharmsBar() {
     NextBtn := CharmsBar.Add("Text", "x+0 w" BW " h30 Center +0x200 BackgroundTrans c" TextColor, Chr(0xE893))
     NextBtn.OnEvent("Click", (*) => Send("{Media_Next}"))
 
-    CharmsBar.SetFont("s" FS_Sml " c" TextColor, "Segoe UI")
-    VolSlider := CharmsBar.Add("Slider", "x5 y+10 w" (CurrentBarWidth-40) " h20 ToolTip NoTicks Background" BgColor, SoundGetVolume())
-    VolSlider.OnEvent("Change", UpdateVolumeLabel)
-    VolTextCtl := CharmsBar.Add("Text", "x+0 yp w35 Right BackgroundTrans c" TextColor, Round(SoundGetVolume()) "%")
+    CharmsBar.SetFont("s" FS_Med " c" TextColor, "Segoe MDL2 Assets")
+    
+    if (VolumeStyle = "Slider") {
+        ; Modern Progress Bar Style
+        ; Mute Icon
+        VolIcon := CharmsBar.Add("Text", "x10 y+10 w30 h30 Center +0x200 BackgroundTrans c" TextColor, Chr(0xE767))
+        VolIcon.OnEvent("Click", (*) => (SoundSetMute(-1), UpdateVolumeLabel()))
+        
+        ; Clickable progress bar
+        ; Calculate widths
+        ; Total = CurrentBarWidth
+        ; Icon (30) + Gap (5) + Bar (?) + Gap (5) + Text (35) + Gap (5)
+        ; BarW = CurrentBarWidth - 30 - 35 - 20 = CurrentBarWidth - 85
+        
+        BarW := CurrentBarWidth - 85
+        BarX := 45
+        
+        VolOverlay := CharmsBar.Add("Text", "x" BarX " yp+11 w" BarW " h8 Background333333")
+        VolOverlay.OnEvent("Click", SetVolumeByClick)
+        
+        ; Progress bar fill (drawn on top)
+        VolBg := CharmsBar.Add("Progress", "x" BarX " yp w" BarW " h8 Background333333 c" TextColor, SoundGetVolume())
+        VolBg.Opt("-Smooth +E0x20")
+        
+        ; Volume percentage text
+        CharmsBar.SetFont("s" FS_Sml " c" TextColor, "Segoe UI")
+        VolTextCtl := CharmsBar.Add("Text", "x+5 yp-5 w35 h20 Right BackgroundTrans c" TextColor, Round(SoundGetVolume()) "%")
+    } else {
+        ; Buttons Mode (Default)
+        VolDownBtn := CharmsBar.Add("Text", "x20 y+10 w40 h40 Center +0x200 BackgroundTrans c" TextColor, Chr(0xE992))
+        VolDownBtn.OnEvent("Click", (*) => (SoundSetVolume("-5"), UpdateVolumeLabel()))
+        
+        CharmsBar.SetFont("s" FS_Sml " c" TextColor, "Segoe UI")
+        VolTextCtl := CharmsBar.Add("Text", "x+0 yp w60 h40 Center +0x200 BackgroundTrans c" TextColor, Round(SoundGetVolume()) "%")
+        
+        CharmsBar.SetFont("s" FS_Med " c" TextColor, "Segoe MDL2 Assets")
+        VolUpBtn := CharmsBar.Add("Text", "x+0 yp w40 h40 Center +0x200 BackgroundTrans c" TextColor, Chr(0xE767))
+        VolUpBtn.OnEvent("Click", (*) => (SoundSetVolume("+5"), UpdateVolumeLabel()))
+    }
 
     AddDivider(TextColor)
 
@@ -264,11 +311,15 @@ CreateCharmsBar() {
     CharmsBar.SetFont("s" FS_Sml " c" SubText, "Segoe UI")
     CharmsBar.Add("Text", "x0 y+10 w" CurrentBarWidth " Center BackgroundTrans", "TOOLS")
     CharmsBar.SetFont("s" Round(14*Scale) " c" TextColor, "Segoe MDL2 Assets")
-    SnipBtn := CharmsBar.Add("Text", "x20 y+5 w40 h40 Center +0x200 BackgroundTrans c" TextColor, Chr(0xE70F))
+    
+    BtnSize := Round(40 * Scale)
+    SideMargin := Round((CurrentBarWidth - (BtnSize * 3)) / 2)
+    
+    SnipBtn := CharmsBar.Add("Text", "x" SideMargin " y+5 w" BtnSize " h" BtnSize " Center +0x200 BackgroundTrans c" TextColor, Chr(0xE70F))
     SnipBtn.OnEvent("Click", (*) => (HideCharms(), Send("#+s")))
-    CalcBtn := CharmsBar.Add("Text", "x+0 w40 h40 Center +0x200 BackgroundTrans c" TextColor, Chr(0xE8EF))
+    CalcBtn := CharmsBar.Add("Text", "x+0 w" BtnSize " h" BtnSize " Center +0x200 BackgroundTrans c" TextColor, Chr(0xE8EF))
     CalcBtn.OnEvent("Click", (*) => (HideCharms(), RunAsUser("calc.exe")))
-    TaskBtn := CharmsBar.Add("Text", "x+0 w40 h40 Center +0x200 BackgroundTrans c" TextColor, Chr(0xE9D9))
+    TaskBtn := CharmsBar.Add("Text", "x+0 w" BtnSize " h" BtnSize " Center +0x200 BackgroundTrans c" TextColor, Chr(0xE9D9))
     TaskBtn.OnEvent("Click", (*) => (HideCharms(), Run("taskmgr.exe")))
 
     AddDivider(TextColor)
@@ -276,23 +327,24 @@ CreateCharmsBar() {
     ; --- APPS ---
     CharmsBar.SetFont("s" FS_Sml " c" SubText, "Segoe UI")
     CharmsBar.Add("Text", "x0 y+10 w" CurrentBarWidth " Center BackgroundTrans", "APPS")
-    CharmsBar.SetFont("s" Round(12*Scale) " w700", "Segoe UI") 
-    BtnA := CharmsBar.Add("Text", "x20 y+5 w40 h40 Center +0x200 BackgroundTrans", "A")
+    CharmsBar.SetFont("s" Round(12*Scale) " w700", "Segoe UI")
+    
+    ; Reuse SideMargin/BtnSize from Tools or recalcluate if needed (they are same)
+    BtnA := CharmsBar.Add("Text", "x" SideMargin " y+5 w" BtnSize " h" BtnSize " Center +0x200 BackgroundTrans", "A")
     BtnA.OnEvent("Click", (*) => (HideCharms(), RunAsUser(AppA_Path)))
-    BtnB := CharmsBar.Add("Text", "x+0 w40 h40 Center +0x200 BackgroundTrans", "B")
+    BtnB := CharmsBar.Add("Text", "x+0 w" BtnSize " h" BtnSize " Center +0x200 BackgroundTrans", "B")
     BtnB.OnEvent("Click", (*) => (HideCharms(), RunAsUser(AppB_Path)))
-    BtnC := CharmsBar.Add("Text", "x+0 w40 h40 Center +0x200 BackgroundTrans", "C")
+    BtnC := CharmsBar.Add("Text", "x+0 w" BtnSize " h" BtnSize " Center +0x200 BackgroundTrans", "C")
     BtnC.OnEvent("Click", (*) => (HideCharms(), RunAsUser(AppC_Path)))
 
     ; --- BOTTOM ---
-    BottomY := BarH - 140 
+    BottomY := BarH - 180 
     CharmsBar.SetFont("s" FS_Big " c" TextColor, "Segoe UI Light")
-    W_Time := Round(CurrentBarWidth * 0.6)
-    TimeCtl := CharmsBar.Add("Text", "x0 y" BottomY " w" W_Time " Right BackgroundTrans", FormatTime(, "h:mm"))
+    TimeCtl := CharmsBar.Add("Text", "x0 y" BottomY " w" CurrentBarWidth " Center BackgroundTrans", FormatTime(, "h:mm"))
     CharmsBar.SetFont("s" FS_Sml " c" TextColor, "Segoe UI")
-    AmPmCtl := CharmsBar.Add("Text", "x+5 yp+12 w50 Left BackgroundTrans", FormatTime(, "tt"))
+    AmPmCtl := CharmsBar.Add("Text", "x0 y+0 w" CurrentBarWidth " Center BackgroundTrans", FormatTime(, "tt"))
     CharmsBar.SetFont("s" FS_Sml " c" SubText, "Segoe UI")
-    CharmsBar.Add("Text", "x0 y+10 w" CurrentBarWidth " Center BackgroundTrans", FormatTime(, "M/d/yyyy"))
+    CharmsBar.Add("Text", "x0 y+5 w" CurrentBarWidth " Center BackgroundTrans", FormatTime(, "M/d/yyyy"))
 
     CharmsBar.SetFont("s" Round(20*Scale) " c" TextColor, "Segoe MDL2 Assets")
     PowerBtn := CharmsBar.Add("Text", "x0 y+10 w" CurrentBarWidth " h40 Center +0x200 BackgroundTrans c" TextColor, Chr(0xE7E8))
@@ -330,10 +382,15 @@ ShowSettings(*) {
     
     SwitchPage(Name) {
         For PName, Controls in Pages
-            For Ctrl in Controls 
-                Ctrl.Visible := (PName = Name)
+            For Ctrl in Controls {
+                if !IsObject(Ctrl)
+                    continue
+                try Ctrl.Visible := (PName = Name)
+            }
         
         For BtnName, Btn in NavBtns {
+            if !IsObject(Btn)
+                continue
             Btn.Opt((BtnName=Name) ? "Background353535" : "Background151515")
             Btn.SetFont((BtnName=Name) ? "w700" : "w400")
         }
@@ -376,6 +433,10 @@ ShowSettings(*) {
     C.Push(ConfigGui.Add("Text", "x160 y+15 cWhite", "Text Color:"))
     DDLText := ConfigGui.Add("DropDownList", "x+10 yp-3 w150 Choose" (ForceText="Auto"?1:ForceText="White"?2:3), ["Auto","White","Black"])
     C.Push(DDLText)
+
+    C.Push(ConfigGui.Add("Text", "x160 y+15 cWhite", "Volume Control:"))
+    DDLVol := ConfigGui.Add("DropDownList", "x+10 yp-3 w150 Choose" (VolumeStyle="Slider"?2:1), ["Buttons","Slider"])
+    C.Push(DDLVol)
 
     C.Push(ConfigGui.Add("GroupBox", "x160 y+20 w300 h140 cWhite", "Details"))
     C.Push(ConfigGui.Add("Text", "xp+15 yp+25 c80D0FF", "Solid Hex:"))
@@ -428,13 +489,13 @@ ShowSettings(*) {
     
     ConfigGui.SetFont("s8 cGray")
     C.Push(ConfigGui.Add("Text", "x160 y+2 w300 Center", "(Google DeepMind)"))
-
+    
     ; --- SAVE BUTTON ---
     BtnSave := ConfigGui.Add("Text", "x230 y300 w160 h35 Center +0x200 Background404040 cWhite", "Save & Apply")
     BtnSave.OnEvent("Click", SaveAll)
     
     SwitchPage("General")
-    ConfigGui.Show("w480 h350")
+    ConfigGui.Show()
     
     SaveAll(*) {
         Global BackgroundMode := DDLMode.Text
@@ -442,6 +503,7 @@ ShowSettings(*) {
         Global BgImage := E_Img.Value
         Global GradientStr := E_Grad.Value
         Global ForceText := DDLText.Text
+        Global VolumeStyle := DDLVol.Text
         Global LaunchOnBoot := ConfigGui["CbBoot"].Value
         
         Global SearchProvider := RadWin.Value ? "Windows" : "Everything"
@@ -454,6 +516,7 @@ ShowSettings(*) {
         SetStartup(LaunchOnBoot)
 
         IniWrite(LaunchOnBoot, IniFile, "Settings", "LaunchOnBoot")
+        IniWrite(VolumeStyle, IniFile, "Settings", "VolumeStyle")
         IniWrite(SearchProvider, IniFile, "Settings", "SearchProvider")
         IniWrite(EverythingPath, IniFile, "Paths", "EverythingPath")
         IniWrite(BackgroundMode, IniFile, "Theme", "BackgroundMode")
@@ -498,8 +561,11 @@ GetContrastingColor(Hex) {
 
 CheckTooltips(wParam, lParam, msg, hwnd) {
     Global LastToolTip
-    if (!CharmsBar || hwnd != CharmsBar.Hwnd)
-        return
+    try {
+        if (!IsSet(CharmsBar) || !CharmsBar || hwnd != CharmsBar.Hwnd)
+            return
+    }
+
     MouseGetPos(,, &WinHwnd, &CtrlHwnd)
     try {
         if (CtrlHwnd) {
@@ -520,13 +586,13 @@ CheckTooltips(wParam, lParam, msg, hwnd) {
 }
 
 AddCharm(IconCode, LabelText, Callback, TipText, TextColor, FontSize) {
-    IconCtl := CharmsBar.Add("Text", "Center w" CurrentBarWidth " h50 +0x200 BackgroundTrans c" TextColor, Chr(IconCode))
+    IconCtl := CharmsBar.Add("Text", "x0 Center w" CurrentBarWidth " h50 +0x200 BackgroundTrans c" TextColor, Chr(IconCode))
     IconCtl.OnEvent("Click", Callback), IconCtl.ToolTipText := TipText
     CharmsBar.SetFont("s" FontSize " c" TextColor, "Segoe UI")
-    TextCtl := CharmsBar.Add("Text", "Center w" CurrentBarWidth " y+0 BackgroundTrans c" TextColor, LabelText)
+    TextCtl := CharmsBar.Add("Text", "x0 Center w" CurrentBarWidth " y+0 BackgroundTrans c" TextColor, LabelText)
     TextCtl.OnEvent("Click", Callback), TextCtl.ToolTipText := TipText
     CharmsBar.SetFont("s24", "Segoe MDL2 Assets") 
-    CharmsBar.Add("Text", "h10 BackgroundTrans w" CurrentBarWidth)
+    CharmsBar.Add("Text", "x0 h10 BackgroundTrans w" CurrentBarWidth)
 }
 
 AddDivider(Color) {
@@ -605,12 +671,34 @@ GetImageSize(Path, &W, &H) {
     }
 }
 
-OnExit(ExitFunc)
+CenterActiveWindow() {
+    hwnd := WinExist("A")
+    if (!hwnd)
+        return
+    
+    GetMonitorUnderMouse(&ML, &MT, &MR, &MB)
+    WinGetPos(&WX, &WY, &WW, &WH, "ahk_id " hwnd)
+    
+    NewX := ML + (MR - ML - WW) / 2
+    NewY := MT + (MB - MT - WH) / 2
+    
+    WinMove(NewX, NewY,,, "ahk_id " hwnd)
+}
+
+
 
 ExitFunc(ExitReason, ExitCode) {
-    Global ConfigGui
+    Global ConfigGui, CharmsBar
+    OnMessage(0x0200, CheckTooltips, 0) ; Unregister
+    SetTimer(CheckFocus, 0)
+    SetTimer(UpdateClock, 0)
+    SetTimer(RainbowCycle, 0)
+    SetTimer(HotCornerWatch, 0)
+    
     if IsSet(ConfigGui) && ConfigGui
         ConfigGui.Destroy()
+    if IsSet(CharmsBar) && CharmsBar
+        CharmsBar.Destroy()
 }
 
 HotCornerWatch() {
@@ -647,7 +735,13 @@ RainbowCycle() {
     if (!CharmsBar || !BtnA) 
         return
     Hue := Mod(Hue + 4, 360) 
-    try BtnA.Opt("c" HSVtoRGB(Hue,1,1)), BtnB.Opt("c" HSVtoRGB(Mod(Hue+60,360),1,1)), BtnC.Opt("c" HSVtoRGB(Mod(Hue+120,360),1,1))
+    try {
+        if BtnA && BtnB && BtnC {
+            BtnA.Opt("c" HSVtoRGB(Hue,1,1))
+            BtnB.Opt("c" HSVtoRGB(Mod(Hue+60,360),1,1))
+            BtnC.Opt("c" HSVtoRGB(Mod(Hue+120,360),1,1))
+        }
+    }
 }
 
 HSVtoRGB(h, s, v) {
@@ -672,6 +766,47 @@ HSVtoRGB(h, s, v) {
     return R G B
 }
 
+SetVolumeByClick(Ctrl, Info) {
+    Global VolBg, CharmsBar
+    try {
+        CoordMode("Mouse", "Screen")
+        MouseGetPos(&MX, &MY)
+        CharmsBar.GetPos(&GuiX, &GuiY)
+        Ctrl.GetPos(&CtrlX, &CtrlY, &CtrlW, &CtrlH)
+        
+        ; Calculate click position relative to control
+        AbsCtrlX := GuiX + CtrlX
+        ClickX := Max(0, Min(CtrlW, MX - AbsCtrlX))
+        
+        ; Set volume based on click position
+        NewVol := Round((ClickX / CtrlW) * 100)
+        SoundSetVolume(Max(0, Min(100, NewVol)))
+        UpdateVolumeLabel()
+    }
+}
+
+UpdateVolumeLabel(Ctrl:="", *) {
+    Global VolTextCtl, VolIcon, VolBg
+    try {
+        if (IsObject(Ctrl) && Ctrl.Type = "Slider")
+            SoundSetVolume(Ctrl.Value)
+            
+        Vol := Round(SoundGetVolume())
+        
+        ; Update text label
+        if (IsSet(VolTextCtl) && VolTextCtl)
+            VolTextCtl.Text := Vol "%"
+        
+        ; Update progress bar
+        if (IsSet(VolBg) && VolBg)
+            VolBg.Value := Vol
+            
+        ; Update icon based on mute state and volume
+        if (IsSet(VolIcon) && VolIcon)
+            VolIcon.Text := SoundGetMute() ? Chr(0xE74F) : (Vol=0 ? Chr(0xE74F) : (Vol<30 ? Chr(0xE992) : (Vol<70 ? Chr(0xE993) : Chr(0xE767))))
+    }
+}
+
 UpdateClock() {
     Global TimeCtl, AmPmCtl
     if (TimeCtl) {
@@ -682,20 +817,4 @@ UpdateClock() {
         if (AmPmCtl.Text != NewAmPm)
             AmPmCtl.Text := NewAmPm
     }
-}
-
-
-
-UpdateVolumeLabel(GuiCtrl, *) {
-    SoundSetVolume(GuiCtrl.Value)
-    VolTextCtl.Text := Round(GuiCtrl.Value) "%"
-}
-
-#!c::
-{
-    if !WinExist("A")
-        return
-    WinGetPos(,, &WinW, &WinH, "A")
-    GetMonitorUnderMouse(&ML, &MT, &MR, &MB)
-    try WinMove(ML + (MR - ML - WinW) / 2, MT + (MB - MT - WinH) / 2,,, "A")
 }
