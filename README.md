@@ -69,6 +69,7 @@ Press `Win+C` to open the bar, then click the **Gear Icon** at the bottom.
 
 ### **Apps**
 - **Quick Launch**: Configure shortcuts for slots **A**, **B**, and **C** to your favorite apps.
+> **Pro Tip**: Hold **Shift** while clicking any App shortcut (A, B, C) to run it as **Administrator**.
 
 ---
 
@@ -76,7 +77,7 @@ Press `Win+C` to open the bar, then click the **Gear Icon** at the bottom.
 
 | Key Combo | Action |
 | :--- | :--- |
-| `Win + C` | Toggle Charms Bar |
+| `Win + C` | Toggle Charms Bar (Access Settings via Gear Icon) |
 | `Win + Alt + C` | Center Active Window |
 | `Top-Right Corner` | Mouse Hover to Open |
 
