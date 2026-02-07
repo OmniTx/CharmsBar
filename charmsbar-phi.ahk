@@ -15,6 +15,10 @@ if not A_IsAdmin {
 Global BaseWidth := 160  
 Global HoverDelay := 400
 Global IniFile := A_ScriptDir "\CharmsSettings.ini"
+Global CurrentVersion := "22"
+Global UpdateJsonUrl := "https://raw.githubusercontent.com/omnitx/CharmsBar/main/update.json" ;
+Global NewAhkUrl := ""
+Global NewExeUrl := ""
 
 ; --- Load Settings ---
 Global SearchProvider := IniRead(IniFile, "Settings", "SearchProvider", "Windows")
@@ -58,30 +62,132 @@ OnExit(ExitFunc)
 #!c::CenterActiveWindow()
 
 ; ==============================================================================
-; HELPER: RUN AS USER
+; AUTO-UPDATE FUNCTIONALITY
 ; ==============================================================================
-RunAsUser(Target, Args := "") {
-    if GetKeyState("Shift", "P") {
-        try Run(Target " " Args)
-        return
-    }
-    ; If we are not Admin, just Run normally (it is already User level)
-    if !A_IsAdmin {
-        try Run(Target " " Args)
-        return
-    }
-    ; If we ARE Admin, try to demote to User via Shell.Application
+CheckForUpdates(Interactive := false) {
+    Global CurrentVersion, UpdateJsonUrl, NewAhkUrl, NewExeUrl
+    
     try {
-        Shell := ComObject("Shell.Application")
-        Desktop := Shell.Windows.FindWindowSW(0, 0, 8, 0, 1) 
-        if (Desktop)
-            Desktop.Document.Application.ShellExecute(Target, Args)
-        else
-            Run(Target " " Args)
-    } catch {
-        Run(Target " " Args)
+        ; Download update.json with cache busting
+        whr := ComObject("WinHttp.WinHttpRequest.5.1")
+        whr.Open("GET", UpdateJsonUrl "?t=" A_TickCount, true)
+        whr.Send()
+        whr.WaitForResponse()
+        
+        if (whr.Status != 200) {
+            if (Interactive)
+                MsgBox("Failed to check for updates. HTTP Status: " whr.Status, "Update Check", 0x10)
+            return
+        }
+        
+        JsonStr := whr.ResponseText
+        
+        ; Simple Regex Parsing for JSON
+        VersionPat := '"version"\s*:\s*"([^"]+)"'
+        AhkUrlPat  := '"ahk_url"\s*:\s*"([^"]+)"'
+        ExeUrlPat  := '"exe_url"\s*:\s*"([^"]+)"'
+        ChangelogPat := '"changelog"\s*:\s*"([^"]+)"'
+        
+        NewVersion := ""
+        if RegExMatch(JsonStr, VersionPat, &Match)
+            NewVersion := Match[1]
+            
+        if (NewVersion == "") {
+            if (Interactive)
+                MsgBox("Failed to parse update information.", "Update Check", 0x10)
+            return
+        }
+
+        ; Extract URLs and Changelog
+        if RegExMatch(JsonStr, AhkUrlPat, &Match)
+            NewAhkUrl := Match[1]
+        if RegExMatch(JsonStr, ExeUrlPat, &Match)
+            NewExeUrl := Match[1]
+        
+        NewChangelog := "No details provided."
+        if RegExMatch(JsonStr, ChangelogPat, &Match)
+            NewChangelog := Match[1]
+        
+        if (NewVersion > CurrentVersion) {
+            MsgText := "A new version is available!`n`n"
+                     . "Current: " CurrentVersion "`n"
+                     . "New: " NewVersion "`n`n"
+                     . "Changes:`n" NewChangelog "`n`n"
+                     . "Do you want to update now?"
+            
+            Result := MsgBox(MsgText, "Update Available", 0x4 + 0x40)
+            if (Result = "Yes")
+                UpdateScript()
+        } else {
+            if (Interactive)
+                MsgBox("You are using the latest version (" CurrentVersion ").", "Update Check", 0x40)
+        }
+    } catch as err {
+        if (Interactive)
+            MsgBox("Failed to check for updates.`n`nError: " err.Message, "Update Check", 0x10)
     }
 }
+
+UpdateScript() {
+    Global NewAhkUrl, NewExeUrl
+    
+    DownloadUrl := A_IsCompiled ? NewExeUrl : NewAhkUrl
+    
+    if (DownloadUrl == "") {
+        MsgBox("Update URL not found for this version.", "Update Failed", 0x10)
+        return
+    }
+
+    TempFile := A_ScriptDir "\update_temp" (A_IsCompiled ? ".exe" : ".ahk")
+    
+    try {
+        Download(DownloadUrl, TempFile)
+        
+        if !FileExist(TempFile) {
+            MsgBox("Download failed. The temporary file was not created.", "Update Failed", 0x10)
+            return
+        }
+        
+        ; Create batch file to replace the script/exe
+        BatchFile := A_ScriptDir "\update.bat"
+        if FileExist(BatchFile)
+            FileDelete(BatchFile)
+            
+        ExePath := A_IsCompiled ? A_ScriptFullPath : A_AhkPath
+        ScriptArgs := A_IsCompiled ? "" : ' "' A_ScriptFullPath '"'
+        CurrentFileName := A_ScriptFullPath
+        
+        ; Batch file logic:
+        ; 1. Wait for this process to end
+        ; 2. Move temp file to current file (overwrite)
+        ; 3. Restart the script/exe
+        ; 4. Delete the batch file
+        
+        BatchCode := '@echo off`n'
+        . 'timeout /t 1 /nobreak >nul`n'
+        . ':loop`n'
+        . 'tasklist | find /i "' A_ScriptName '" >nul`n'
+        . 'if not errorlevel 1 (`n'
+        . '    timeout /t 1 /nobreak >nul`n'
+        . '    goto loop`n'
+        . ')`n'
+        . 'move /y "' TempFile '" "' CurrentFileName '" >nul`n'
+        . 'start "" "' ExePath '"' ScriptArgs '`n'
+        . 'del "%~f0" & exit'
+        
+        FileAppend(BatchCode, BatchFile)
+        
+        Run(BatchFile, , "Hide")
+        ExitApp()
+        
+    } catch as err {
+        MsgBox("Update failed!`n`nError: " err.Message, "Update Error", 0x10)
+        if FileExist(TempFile)
+            FileDelete(TempFile)
+    }
+}
+
+
 
 ; ==============================================================================
 ; HELPER: GENERATE STATIC GRADIENT BITMAP
@@ -487,8 +593,12 @@ ShowSettings(*) {
     ConfigGui.SetFont("s10 norm cWhite")
     C.Push(ConfigGui.Add("Text", "x160 y+20 w300 Center", "Co-Developed with Antigravity"))
     
+    BtnUpdate := ConfigGui.Add("Button", "x230 y+10 w160 h30", "Check for Updates")
+    BtnUpdate.OnEvent("Click", (*) => CheckForUpdates(true))
+    C.Push(BtnUpdate)
+    
     ConfigGui.SetFont("s8 cGray")
-    C.Push(ConfigGui.Add("Text", "x160 y+2 w300 Center", "(Google DeepMind)"))
+    C.Push(ConfigGui.Add("Text", "x160 y+10 w300 Center", "(Google DeepMind)"))
     
     ; --- SAVE BUTTON ---
     BtnSave := ConfigGui.Add("Text", "x230 y300 w160 h35 Center +0x200 Background404040 cWhite", "Save & Apply")
@@ -816,5 +926,26 @@ UpdateClock() {
             TimeCtl.Text := NewTime
         if (AmPmCtl.Text != NewAmPm)
             AmPmCtl.Text := NewAmPm
+    }
+}
+
+RunAsUser(Target, Args := "") {
+    if GetKeyState("Shift", "P") {
+        try Run(Target " " Args)
+        return
+    }
+    if !A_IsAdmin {
+        try Run(Target " " Args)
+        return
+    }
+    try {
+        Shell := ComObject("Shell.Application")
+        Desktop := Shell.Windows.FindWindowSW(0, 0, 8, 0, 1) 
+        if (Desktop)
+            Desktop.Document.Application.ShellExecute(Target, Args)
+        else
+            Run(Target " " Args)
+    } catch {
+        Run(Target " " Args)
     }
 }
