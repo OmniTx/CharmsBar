@@ -1,6 +1,6 @@
 ﻿#Requires AutoHotkey v2.0
 ; ==============================================================================
-; Script: Charms Bar Platinum v22 (Static Gradient / Slide-in Animation)
+; Script: Charms Bar Platinum v23 (Static Gradient / Slide-in Animation)
 ; Features: Search Config | Static Multi-Point Gradient | Image BG | No UAC
 ; ==============================================================================
 
