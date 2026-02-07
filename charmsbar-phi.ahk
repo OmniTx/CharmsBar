@@ -15,7 +15,7 @@ if not A_IsAdmin {
 Global BaseWidth := 160  
 Global HoverDelay := 400
 Global IniFile := A_ScriptDir "\CharmsSettings.ini"
-Global CurrentVersion := "22"
+Global CurrentVersion := "23"
 Global UpdateJsonUrl := "https://raw.githubusercontent.com/omnitx/CharmsBar/main/update.json" ;
 Global NewAhkUrl := ""
 Global NewExeUrl := ""
