@@ -208,7 +208,7 @@ CreateCharmsBar() {
         SubText := (TextColor == "FFFFFF") ? "CCCCCC" : "444444"
     }
 
-    CharmsBar := Gui("-Caption +AlwaysOnTop +ToolWindow +Owner +E0x08000000", "CharmsBar")
+    CharmsBar := Gui("-Caption +AlwaysOnTop +ToolWindow +Owner +E0x08000000 -DPIScale", "CharmsBar")
     CharmsBar.BackColor := BgColor
     CharmsBar.MarginX := 0, CharmsBar.MarginY := 0
     WinSetTransparent(235, CharmsBar)
@@ -653,7 +653,7 @@ IsWindowFullScreen(winID) {
 SetStartup(Enable) {
     TaskName := "CharmsBarAutoStart"
     if (Enable)
-        RunWait('schtasks /Create /TN "' TaskName '" /TR "' A_ScriptFullPath '" /SC ONLOGON /RL HIGHEST /F',, "Hide")
+        RunWait('schtasks /Create /TN "' TaskName '" /TR "\"' A_AhkPath '\" \"' A_ScriptFullPath '\"" /SC ONLOGON /RL HIGHEST /F',, "Hide")
     else
         RunWait('schtasks /Delete /TN "' TaskName '" /F',, "Hide")
 }
