@@ -541,6 +541,8 @@ void Compose() {
 }
 
 bool DecideGlass() {
+    constexpr bool kGlassEnabled = false;
+    if (!kGlassEnabled) return false;
     const std::wstring& m = g_cfg.backgroundMode;
     if (m == L"Dark") return true;
     if (m == L"Custom") return ContrastText(HexToRgb(g_cfg.customColor)) == RGB(255, 255, 255);
