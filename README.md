@@ -49,7 +49,7 @@ Just download the compiled executable and run it. No AutoHotkey installation is 
 
 ### **Option 2: Advanced (Source Script)**
 1. **Download AutoHotkey v2**: [Get it here](https://www.autohotkey.com/).
-2. **Download the Script**: Save `charmsbar-phi.ahk` to your desired folder.
+2. **Download the Script**: Save `ahk/charmsbar-phi.ahk` to your desired folder.
 3. **Run**: Double-click the file.
 4. **Setup**: The script will ask for Admin rights once to set up the high-priority task scheduler (for silent startup).
 
