@@ -168,9 +168,11 @@ HBITMAP DecodeImageFile(const std::wstring& path, int* outW, int* outH) {
     auto coCreate = DynFn<decltype(&CoCreateInstance)>(L"ole32.dll", "CoCreateInstance");
     if (!coCreate) return nullptr;
 
+    static const CLSID kClsidWicFactory =
+        { 0xcacaf262, 0x9370, 0x4615, { 0xa1, 0x3b, 0x9f, 0x55, 0x39, 0xda, 0x4c, 0x0a } };
     IWICImagingFactory* fac = nullptr;
     HBITMAP hbmp = nullptr;
-    if (FAILED(coCreate(__uuidof(WICImagingFactory), nullptr, CLSCTX_INPROC_SERVER,
+    if (FAILED(coCreate(kClsidWicFactory, nullptr, CLSCTX_INPROC_SERVER,
                         __uuidof(IWICImagingFactory), reinterpret_cast<void**>(&fac))) || !fac)
         return nullptr;
 

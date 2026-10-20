@@ -70,9 +70,9 @@ void RunApp(const std::wstring& path, bool elevate) {
     ShellExecuteW(nullptr, elevate ? L"runas" : L"open", path.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 }
 
-void MediaPrev() { SendAppCommand(APPCOMMAND_MEDIA_PREV); }
+void MediaPrev() { SendAppCommand(APPCOMMAND_MEDIA_PREVIOUSTRACK); }
 void MediaPlayPause() { SendAppCommand(APPCOMMAND_MEDIA_PLAY_PAUSE); }
-void MediaNext() { SendAppCommand(APPCOMMAND_MEDIA_NEXT); }
+void MediaNext() { SendAppCommand(APPCOMMAND_MEDIA_NEXTTRACK); }
 
 void ShowPowerMenu() {
     HMENU m = CreatePopupMenu();
@@ -95,9 +95,9 @@ void ShowPowerMenu() {
 void ApplyStartupTask(bool enable) {
     std::wstring cmd;
     if (enable)
-        cmd = L"schtasks /Create /TN \"" APP_TASKNAME L"\" /TR \"\\\"" + ExePath() + L"\\\"\" /SC ONLOGON /F";
+        cmd = L"schtasks /Create /TN \"" + std::wstring(APP_TASKNAME) + L"\" /TR \"\\\"" + ExePath() + L"\\\"\" /SC ONLOGON /F";
     else
-        cmd = L"schtasks /Delete /TN \"" APP_TASKNAME L"\" /F";
+        cmd = L"schtasks /Delete /TN \"" + std::wstring(APP_TASKNAME) + L"\" /F";
     STARTUPINFOW si{};
     si.cb = sizeof(si);
     si.dwFlags = STARTF_USESHOWWINDOW;

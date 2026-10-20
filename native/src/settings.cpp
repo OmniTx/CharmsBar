@@ -372,11 +372,12 @@ LRESULT CALLBACK SettingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
             SetBkMode(dc, TRANSPARENT);
             SetTextColor(dc, d.color);
             if (d.underline) {
-                DrawTextW(dc, d.text.c_str(), -1, &d.rc, d.align | DT_VCENTER | DT_SINGLELINE);
+                RECT urc = d.rc;
+                DrawTextW(dc, d.text.c_str(), -1, &urc, d.align | DT_VCENTER | DT_SINGLELINE);
                 SIZE sz{};
                 GetTextExtentPoint32W(dc, d.text.c_str(), static_cast<int>(d.text.size()), &sz);
-                int tx = (d.rc.left + d.rc.right - sz.cx) / 2;
-                int ty = (d.rc.top + d.rc.bottom) / 2 + sz.cy / 2 + 2;
+                int tx = (urc.left + urc.right - sz.cx) / 2;
+                int ty = (urc.top + urc.bottom) / 2 + sz.cy / 2 + 2;
                 HPEN up = CreatePen(PS_SOLID, 1, d.color);
                 HGDIOBJ ou = SelectObject(dc, up);
                 MoveToEx(dc, tx, ty, nullptr);
@@ -384,7 +385,8 @@ LRESULT CALLBACK SettingsProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
                 SelectObject(dc, ou);
                 DeleteObject(up);
             } else {
-                DrawTextW(dc, d.text.c_str(), -1, &d.rc, d.align | DT_VCENTER | DT_SINGLELINE);
+                RECT nrc = d.rc;
+                DrawTextW(dc, d.text.c_str(), -1, &nrc, d.align | DT_VCENTER | DT_SINGLELINE);
             }
             SelectObject(dc, of);
         }

@@ -88,7 +88,7 @@ bool HttpGet(const WinApi& a, const std::wstring& url, std::string& out, DWORD* 
     HINTERNET req = nullptr;
     if (con)
         req = a.OpenRequest(con, L"GET", path[0] ? path : L"/", nullptr, WINHTTP_NO_REFERER,
-                            WINHTTP_DEFAULT_ACCEPT_TYPE,
+                            nullptr,
                             (uc.nScheme == INTERNET_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0);
     bool ok = false;
     if (req) {
