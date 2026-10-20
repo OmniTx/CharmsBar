@@ -109,6 +109,20 @@ void PaintChrome(HDC hdc);
 void ApplyGlass(bool enable);
 bool DecideGlass();
 void Repaint();
+void RenderFrame();
+
+struct ACCENT_POLICY {
+    int AccentState;
+    int AccentFlags;
+    unsigned long GradientColor;
+    int AnimationId;
+};
+struct WINCOMPATTRDATA {
+    int Attrib;
+    void* pvData;
+    size_t cbData;
+};
+using SetWindowCompositionAttribute_t = BOOL(WINAPI*)(HWND, WINCOMPATTRDATA*);
 
 COLORREF Hsv(float h, float s, float v) {
     float c = v * s;
@@ -454,7 +468,7 @@ void PaintChrome(HDC hdc) {
     }
 }
 
-void Compose() {
+void RenderFrame() {
     if (!g_hBar || g_w <= 0 || g_h <= 0) return;
     EnsureBuffers();
 
@@ -469,7 +483,7 @@ void Compose() {
     FillRect(g_dcMask, &full, blk);
     DrawAll(g_dcMask, true);
 
-    int baseAlpha = g_acrylic ? 150 : g_bgAlpha;
+    int baseAlpha = (g_glass || g_acrylic) ? 150 : g_bgAlpha;
     const int stride = g_w * 4;
     RECT acts[3];
     int nAct = 0;
@@ -496,7 +510,7 @@ void Compose() {
             int mr = m[2], mg = m[1], mb = m[0];
             int mv = mr > mg ? (mr > mb ? mr : mb) : (mg > mb ? mg : mb);
             int a0 = baseAlpha;
-            if (g_acrylic) {
+            if (g_glass || g_acrylic) {
                 for (int i = 0; i < nAct; i++) {
                     if (x >= acts[i].left && x < acts[i].right && y >= acts[i].top && y < acts[i].bottom) {
                         a0 = 200;
@@ -514,6 +528,10 @@ void Compose() {
         }
     }
 
+}
+
+void Compose() {
+    RenderFrame();
     HDC scr = GetDC(nullptr);
     BLENDFUNCTION bf = { AC_SRC_OVER, 0, 255, AC_SRC_ALPHA };
     POINT ptZero = { 0, 0 };
@@ -535,32 +553,45 @@ void Repaint() {
 
 void ApplyGlass(bool enable) {
     if (enable == g_glass) return;
+    auto setAttr = DynFn<SetWindowCompositionAttribute_t>(L"user32.dll", "SetWindowCompositionAttribute");
     LONG_PTR ex = GetWindowLongPtrW(g_hBar, GWL_EXSTYLE);
     if (enable) {
         const std::wstring& m = g_cfg.backgroundMode;
-        if (m == L"Dark") g_glassDark = 1;
-        else if (m == L"Light") g_glassDark = 0;
-        else g_glassDark = (ContrastText(HexToRgb(g_cfg.customColor)) == RGB(255, 255, 255)) ? 1 : 0;
+        unsigned long tint = 0xB41C1C1C;
+        if (m == L"Light") tint = 0xB4F2F2F2;
+        else if (m == L"Custom") {
+            COLORREF c = HexToRgb(g_cfg.customColor);
+            tint = 0xB4000000UL | (static_cast<unsigned long>(GetBValue(c)) << 16) |
+                   (static_cast<unsigned long>(GetGValue(c)) << 8) | static_cast<unsigned long>(GetRValue(c));
+        }
         SetWindowLongPtrW(g_hBar, GWL_EXSTYLE, ex & ~WS_EX_LAYERED);
-        DwmSetWindowAttribute(g_hBar, DWMWA_USE_IMMERSIVE_DARK_MODE, &g_glassDark, sizeof(g_glassDark));
-        int backdrop = DWMSBT_TRANSIENTWINDOW;
-        if (FAILED(DwmSetWindowAttribute(g_hBar, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop)))) {
+        ACCENT_POLICY ap{};
+        ap.AccentState = 4;
+        ap.AccentFlags = 2;
+        ap.GradientColor = tint;
+        WINCOMPATTRDATA d{};
+        d.Attrib = 19;
+        d.pvData = &ap;
+        d.cbData = sizeof(ap);
+        BOOL ok = setAttr ? setAttr(g_hBar, &d) : FALSE;
+        if (!ok) {
             SetWindowLongPtrW(g_hBar, GWL_EXSTYLE, ex);
             g_glass = false;
             return;
         }
-        MARGINS mg;
-        mg.cxLeftWidth = -1; mg.cxRightWidth = -1; mg.cyTopHeight = -1; mg.cyBottomHeight = -1;
-        DwmExtendFrameIntoClientArea(g_hBar, &mg);
         g_glass = true;
+        g_acrylic = true;
     } else {
-        int backdrop = DWMSBT_NONE;
-        DwmSetWindowAttribute(g_hBar, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
-        MARGINS mg;
-        mg.cxLeftWidth = 0; mg.cxRightWidth = 0; mg.cyTopHeight = 0; mg.cyBottomHeight = 0;
-        DwmExtendFrameIntoClientArea(g_hBar, &mg);
+        ACCENT_POLICY ap{};
+        ap.AccentState = 0;
+        WINCOMPATTRDATA d{};
+        d.Attrib = 19;
+        d.pvData = &ap;
+        d.cbData = sizeof(ap);
+        if (setAttr) setAttr(g_hBar, &d);
         SetWindowLongPtrW(g_hBar, GWL_EXSTYLE, ex | WS_EX_LAYERED);
         g_glass = false;
+        g_acrylic = false;
     }
     SetWindowPos(g_hBar, nullptr, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
@@ -613,7 +644,7 @@ void Layout() {
         else g_text = RGB(255, 255, 255);
         g_sub = (g_text == RGB(255, 255, 255)) ? RGB(0xCC, 0xCC, 0xCC) : RGB(0x44, 0x44, 0x44);
     }
-    g_acrylic = g_backdropOK && (mode == L"Dark" || mode == L"Light" || mode == L"Custom");
+    g_acrylic = g_glass;
     if (mode == L"Image" || mode == L"Gradient") g_acrylic = false;
 
     int contentLogical = (g_cfg.volumeStyle == L"Slider") ? 643 : 653;
@@ -924,13 +955,8 @@ LRESULT CALLBACK BarProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         PAINTSTRUCT ps{};
         HDC dc = BeginPaint(h, &ps);
         if (g_glass && g_w > 0 && g_h > 0) {
-            EnsureBuffers();
-            RECT full = { 0, 0, g_w, g_h };
-            HBRUSH blk = static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
-            FillRect(g_dcBg, &full, blk);
-            PaintChrome(g_dcBg);
-            DrawAll(g_dcBg, false);
-            BitBlt(dc, 0, 0, g_w, g_h, g_dcBg, 0, 0, SRCCOPY);
+            RenderFrame();
+            BitBlt(dc, 0, 0, g_w, g_h, g_dcOut, 0, 0, SRCCOPY);
         }
         EndPaint(h, &ps);
         return 0;
