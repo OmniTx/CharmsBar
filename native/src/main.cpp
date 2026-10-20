@@ -58,8 +58,15 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     g_hMsg = CreateMsgWindow();
     if (!g_hMsg) return 0;
 
-    RegisterHotKey(g_hMsg, HK_TOGGLE, MOD_WIN | MOD_NOREPEAT, 'C');
     RegisterHotKey(g_hMsg, HK_CENTER, MOD_WIN | MOD_ALT | MOD_NOREPEAT, 'C');
+    if (RegisterHotKey(g_hMsg, HK_TOGGLE, MOD_WIN | MOD_NOREPEAT, 'C')) {
+        g_toggleHotkey = L"Win+C";
+    } else if (RegisterHotKey(g_hMsg, HK_TOGGLE, MOD_WIN | MOD_SHIFT | MOD_NOREPEAT, 'C')) {
+        g_toggleHotkey = L"Win+Shift+C";
+    } else {
+        g_toggleHotkey = L"Ctrl+Alt+C";
+        RegisterHotKey(g_hMsg, HK_TOGGLE, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 'C');
+    }
     SetTimer(g_hMsg, TIMER_CORNER, 100, nullptr);
 
     MSG m{};

@@ -7,6 +7,7 @@ HWND      g_hSettings = nullptr;
 bool      g_barVisible = false;
 bool      g_openedByHover = false;
 UINT      g_dpi = 96;
+std::wstring g_toggleHotkey = L"Win+C";
 AppConfig g_cfg;
 
 int SS(int logicalPx) {
@@ -67,6 +68,8 @@ bool IsForegroundFullScreen() {
     wchar_t cls[64]{};
     GetClassNameW(h, cls, 64);
     if (!wcscmp(cls, L"Progman") || !wcscmp(cls, L"WorkerW")) return false;
+    LONG_PTR style = GetWindowLongPtrW(h, GWL_STYLE);
+    if (style & WS_CAPTION) return false;
     RECT wr{};
     GetWindowRect(h, &wr);
     HMONITOR hm = MonitorFromWindow(h, MONITOR_DEFAULTTONEAREST);

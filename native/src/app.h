@@ -43,6 +43,7 @@ extern HWND      g_hSettings;
 extern bool      g_barVisible;
 extern bool      g_openedByHover;
 extern UINT      g_dpi;
+extern std::wstring g_toggleHotkey;
 
 struct AppConfig {
     std::wstring searchProvider = L"Windows";

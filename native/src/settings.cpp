@@ -153,6 +153,9 @@ void LayoutS(HWND hwnd) {
     g_draws.push_back({ g_linkRect, L"github.com/omnitx", 10, 400, RGB(0x80, 0xC0, 0xFF), DT_CENTER, true, 3 });
     g_draws.push_back({ { SS(160), SS(185), SS(460), SS(200) }, L"(Google DeepMind)", 8, 400,
                         RGB(0x80, 0x80, 0x80), DT_CENTER, false, 3 });
+    g_draws.push_back({ { SS(160), SS(206), SS(460), SS(221) },
+                        std::wstring(L"Toggle hotkey: ") + g_toggleHotkey, 9, 400,
+                        RGB(0xB0, 0xB0, 0xB0), DT_CENTER, false, 3 });
     MoveCtl(ID_BTN_UPD, { SS(230), SS(230), SS(390), SS(260) });
 
     MoveCtl(ID_BTN_SAVE, { SS(230), SS(400), SS(390), SS(435) });
