@@ -120,7 +120,7 @@ COLORREF Hsv(float h, float s, float v) {
 std::wstring GetBatteryInfo() {
     SYSTEM_POWER_STATUS sps{};
     if (!GetSystemPowerStatus(&sps)) return L"";
-    if (sps.BatteryFlag == 255) return L"AC Power";
+    if (sps.BatteryFlag == 255 || sps.BatteryLifePercent == 255) return L"AC Power";
     wchar_t buf[40]{};
     swprintf_s(buf, L"%s%d%%", sps.ACLineStatus ? L"Charging " : L"Battery ", sps.BatteryLifePercent);
     return buf;
