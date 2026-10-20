@@ -5,6 +5,9 @@ namespace {
 constexpr int HK_TOGGLE = 1;
 constexpr int HK_CENTER = 2;
 constexpr int TIMER_CORNER = 1;
+constexpr int TIMER_HKRETRY = 3;
+
+UINT g_activeMods = MOD_WIN | MOD_NOREPEAT;
 
 #ifndef DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
 #define DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 ((DPI_AWARENESS_CONTEXT)-4)
@@ -23,6 +26,19 @@ LRESULT CALLBACK MsgProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_TIMER:
         if (wp == TIMER_CORNER) actions::HotCornerTick();
+        else if (wp == TIMER_HKRETRY) {
+            if (g_toggleHotkey == L"Win+C") {
+                KillTimer(h, TIMER_HKRETRY);
+            } else {
+                UnregisterHotKey(h, HK_TOGGLE);
+                if (RegisterHotKey(h, HK_TOGGLE, MOD_WIN | MOD_NOREPEAT, 'C')) {
+                    g_toggleHotkey = L"Win+C";
+                    KillTimer(h, TIMER_HKRETRY);
+                } else {
+                    RegisterHotKey(h, HK_TOGGLE, g_activeMods, 'C');
+                }
+            }
+        }
         return 0;
     case WM_DESTROY:
         PostQuitMessage(0);
@@ -61,13 +77,17 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     RegisterHotKey(g_hMsg, HK_CENTER, MOD_WIN | MOD_ALT | MOD_NOREPEAT, 'C');
     if (RegisterHotKey(g_hMsg, HK_TOGGLE, MOD_WIN | MOD_NOREPEAT, 'C')) {
         g_toggleHotkey = L"Win+C";
+        g_activeMods = MOD_WIN | MOD_NOREPEAT;
     } else if (RegisterHotKey(g_hMsg, HK_TOGGLE, MOD_WIN | MOD_SHIFT | MOD_NOREPEAT, 'C')) {
         g_toggleHotkey = L"Win+Shift+C";
+        g_activeMods = MOD_WIN | MOD_SHIFT | MOD_NOREPEAT;
     } else {
         g_toggleHotkey = L"Ctrl+Alt+C";
-        RegisterHotKey(g_hMsg, HK_TOGGLE, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 'C');
+        g_activeMods = MOD_CONTROL | MOD_ALT | MOD_NOREPEAT;
+        RegisterHotKey(g_hMsg, HK_TOGGLE, g_activeMods, 'C');
     }
     SetTimer(g_hMsg, TIMER_CORNER, 100, nullptr);
+    SetTimer(g_hMsg, TIMER_HKRETRY, 30000, nullptr);
 
     MSG m{};
     while (GetMessageW(&m, nullptr, 0, 0) > 0) {

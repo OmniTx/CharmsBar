@@ -22,6 +22,9 @@
 #ifndef DWMSBT_TRANSIENTWINDOW
 #define DWMSBT_TRANSIENTWINDOW 2
 #endif
+#ifndef DWMSBT_NONE
+#define DWMSBT_NONE 1
+#endif
 
 namespace {
 
@@ -76,6 +79,8 @@ COLORREF g_sub = RGB(0xBB, 0xBB, 0xBB);
 int g_bgAlpha = 235;
 bool g_acrylic = false;
 bool g_backdropOK = false;
+bool g_glass = false;
+int  g_glassDark = 1;
 
 HBITMAP g_hbmImage = nullptr;
 std::wstring g_loadedImage;
@@ -100,6 +105,10 @@ void Layout();
 void MoveFocus(int dir);
 void StartAnim(bool show);
 void TickAnim();
+void PaintChrome(HDC hdc);
+void ApplyGlass(bool enable);
+bool DecideGlass();
+void Repaint();
 
 COLORREF Hsv(float h, float s, float v) {
     float c = v * s;
@@ -335,9 +344,42 @@ void EnsureBuffers() {
     g_bufH = g_h;
 }
 
+void DrawWindowsLogo(HDC hdc, RECT rc, COLORREF color) {
+    int w = rc.right - rc.left;
+    int h = rc.bottom - rc.top;
+    if (w < 8 || h < 8) return;
+    int gap = w / 9;
+    int paneW = (w - gap) / 2;
+    int paneH = (h - gap) / 2;
+    int tilt = h / 12;
+    int L = rc.left, T = rc.top;
+    int Mx = L + paneW, Mx2 = Mx + gap;
+    int My = T + paneH, My2 = My + gap;
+    int R = L + w, B = T + h;
+    POINT q[4];
+    HBRUSH b = CreateSolidBrush(color);
+    HGDIOBJ ob = SelectObject(hdc, b);
+    HGDIOBJ op = SelectObject(hdc, GetStockObject(NULL_PEN));
+    q[0] = { L, T + tilt }; q[1] = { Mx, T }; q[2] = { Mx, My }; q[3] = { L, My - tilt };
+    Polygon(hdc, q, 4);
+    q[0] = { Mx2, T }; q[1] = { R, T + tilt }; q[2] = { R, My - tilt }; q[3] = { Mx2, My };
+    Polygon(hdc, q, 4);
+    q[0] = { L, My2 + tilt }; q[1] = { Mx, My2 }; q[2] = { Mx, B }; q[3] = { L, B - tilt };
+    Polygon(hdc, q, 4);
+    q[0] = { Mx2, My2 }; q[1] = { R, My2 + tilt }; q[2] = { R, B }; q[3] = { Mx2, B - tilt };
+    Polygon(hdc, q, 4);
+    SelectObject(hdc, ob);
+    SelectObject(hdc, op);
+    DeleteObject(b);
+}
+
 void DrawAll(HDC hdc, bool mask) {
     SetBkMode(hdc, TRANSPARENT);
     for (const GlyphDraw& gd : g_glyphs) {
+        if (gd.ch == 0) {
+            DrawWindowsLogo(hdc, gd.rc, mask ? RGB(255, 255, 255) : gd.color);
+            continue;
+        }
         HFONT f = GetCachedFontPt(gd.pt, gd.weight, false, gd.family);
         HGDIOBJ of = SelectObject(hdc, f);
         SetTextColor(hdc, mask ? RGB(255, 255, 255) : gd.color);
@@ -368,11 +410,7 @@ RECT RectFor(Id id) {
     return r;
 }
 
-void Compose() {
-    if (!g_hBar || g_w <= 0 || g_h <= 0) return;
-    EnsureBuffers();
-
-    PaintBackground(g_dcBg);
+void PaintChrome(HDC hdc) {
     RECT hr{}, fr{}, pr{};
     bool hasHover = (g_hover != Id::None);
     if (hasHover) { hr = RectFor(g_hover); if (IsRectEmpty(&hr)) hasHover = false; }
@@ -382,35 +420,43 @@ void Compose() {
     if (hasPress) { pr = RectFor(g_pressed); if (IsRectEmpty(&pr)) hasPress = false; }
     if (hasPress) {
         HBRUSH hb = CreateSolidBrush(Blend(g_bg, g_text, 0.30f));
-        FillRect(g_dcBg, &pr, hb);
+        FillRect(hdc, &pr, hb);
         DeleteObject(hb);
     } else {
         if (hasHover) {
             HBRUSH hb = CreateSolidBrush(Blend(g_bg, g_text, 0.16f));
-            FillRect(g_dcBg, &hr, hb);
+            FillRect(hdc, &hr, hb);
             DeleteObject(hb);
         }
         if (hasFocus) {
             HBRUSH hb = CreateSolidBrush(Blend(g_bg, g_text, 0.16f));
-            FillRect(g_dcBg, &fr, hb);
+            FillRect(hdc, &fr, hb);
             HBRUSH fb = CreateSolidBrush(Blend(g_bg, g_text, 0.45f));
-            FrameRect(g_dcBg, &fr, fb);
+            FrameRect(hdc, &fr, fb);
             DeleteObject(hb);
             DeleteObject(fb);
         }
     }
     HBRUSH db = CreateSolidBrush(RGB(0x55, 0x55, 0x55));
-    for (const RECT& d : g_dividers) FillRect(g_dcBg, &d, db);
+    for (const RECT& d : g_dividers) FillRect(hdc, &d, db);
     DeleteObject(db);
 
     if (g_rcVolTrack.right > g_rcVolTrack.left) {
         HBRUSH tb = CreateSolidBrush(RGB(0x33, 0x33, 0x33));
-        FillRect(g_dcBg, &g_rcVolTrack, tb);
+        FillRect(hdc, &g_rcVolTrack, tb);
         DeleteObject(tb);
         HBRUSH fb = CreateSolidBrush(g_text);
-        FillRect(g_dcBg, &g_rcVolFill, fb);
+        FillRect(hdc, &g_rcVolFill, fb);
         DeleteObject(fb);
     }
+}
+
+void Compose() {
+    if (!g_hBar || g_w <= 0 || g_h <= 0) return;
+    EnsureBuffers();
+
+    PaintBackground(g_dcBg);
+    PaintChrome(g_dcBg);
 
     BitBlt(g_dcFg, 0, 0, g_w, g_h, g_dcBg, 0, 0, SRCCOPY);
     DrawAll(g_dcFg, false);
@@ -424,10 +470,19 @@ void Compose() {
     const int stride = g_w * 4;
     RECT acts[3];
     int nAct = 0;
-    if (hasPress) acts[nAct++] = pr;
-    else {
-        if (hasHover) acts[nAct++] = hr;
-        if (hasFocus) acts[nAct++] = fr;
+    if (g_pressed != Id::None) {
+        RECT pr = RectFor(g_pressed);
+        if (!IsRectEmpty(&pr)) acts[nAct++] = pr;
+    }
+    if (!nAct) {
+        if (g_hover != Id::None) {
+            RECT hr = RectFor(g_hover);
+            if (!IsRectEmpty(&hr)) acts[nAct++] = hr;
+        }
+        if (g_barFocus && g_focusId != Id::None) {
+            RECT fr = RectFor(g_focusId);
+            if (!IsRectEmpty(&fr)) acts[nAct++] = fr;
+        }
     }
     for (int y = 0; y < g_h; y++) {
         const BYTE* mrow = g_bitsMask + y * stride;
@@ -462,6 +517,50 @@ void Compose() {
     SIZE size = { g_w, g_h };
     UpdateLayeredWindow(g_hBar, scr, nullptr, &size, g_dcOut, &ptZero, 0, &bf, ULW_ALPHA);
     ReleaseDC(nullptr, scr);
+}
+
+bool DecideGlass() {
+    const std::wstring& m = g_cfg.backgroundMode;
+    return IsWin11() && (m == L"Dark" || m == L"Light" || m == L"Custom");
+}
+
+void Repaint() {
+    if (!g_hBar || g_w <= 0) return;
+    if (g_glass) InvalidateRect(g_hBar, nullptr, FALSE);
+    else Compose();
+}
+
+void ApplyGlass(bool enable) {
+    if (enable == g_glass) return;
+    LONG_PTR ex = GetWindowLongPtrW(g_hBar, GWL_EXSTYLE);
+    if (enable) {
+        const std::wstring& m = g_cfg.backgroundMode;
+        if (m == L"Dark") g_glassDark = 1;
+        else if (m == L"Light") g_glassDark = 0;
+        else g_glassDark = (ContrastText(HexToRgb(g_cfg.customColor)) == RGB(255, 255, 255)) ? 1 : 0;
+        SetWindowLongPtrW(g_hBar, GWL_EXSTYLE, ex & ~WS_EX_LAYERED);
+        DwmSetWindowAttribute(g_hBar, DWMWA_USE_IMMERSIVE_DARK_MODE, &g_glassDark, sizeof(g_glassDark));
+        int backdrop = DWMSBT_TRANSIENTWINDOW;
+        if (FAILED(DwmSetWindowAttribute(g_hBar, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop)))) {
+            SetWindowLongPtrW(g_hBar, GWL_EXSTYLE, ex);
+            g_glass = false;
+            return;
+        }
+        MARGINS mg;
+        mg.cxLeftWidth = -1; mg.cxRightWidth = -1; mg.cyTopHeight = -1; mg.cyBottomHeight = -1;
+        DwmExtendFrameIntoClientArea(g_hBar, &mg);
+        g_glass = true;
+    } else {
+        int backdrop = DWMSBT_NONE;
+        DwmSetWindowAttribute(g_hBar, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
+        MARGINS mg;
+        mg.cxLeftWidth = 0; mg.cxRightWidth = 0; mg.cyTopHeight = 0; mg.cyBottomHeight = 0;
+        DwmExtendFrameIntoClientArea(g_hBar, &mg);
+        SetWindowLongPtrW(g_hBar, GWL_EXSTYLE, ex | WS_EX_LAYERED);
+        g_glass = false;
+    }
+    SetWindowPos(g_hBar, nullptr, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 }
 
 void RefreshVolume() {
@@ -543,7 +642,7 @@ void Layout() {
 
     AddCharm(Id::Search, 0xE721, L"Search", L"Search System/Files");
     AddCharm(Id::Clipboard, 0xF0E3, L"Clipboard", L"Clipboard Settings");
-    AddCharm(Id::Start, 0xE80F, L"Start", L"Open Start Menu");
+    AddCharm(Id::Start, 0, L"Start", L"Open Start Menu");
     AddCharm(Id::Devices, 0xE772, L"Devices", L"Connected Devices");
     AddCharm(Id::SettingsCharm, 0xE713, L"Settings", L"Windows Settings");
 
@@ -723,7 +822,9 @@ void TipHide() {
 
 void TipShow(const std::wstring& text, const POINT& clientPt) {
     if (!g_hTip) return;
+    SetWindowTextW(g_hTip, text.c_str());
     UINT tipDpi = GetDpiForWindow(g_hTip);
+    g_dpi = tipDpi;
     HFONT f = GetCachedFontPt(10, 400, false, SEGOE);
     HDC dc = GetDC(g_hTip);
     HGDIOBJ of = SelectObject(dc, f);
@@ -818,7 +919,16 @@ LRESULT CALLBACK BarProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
     case WM_PAINT: {
         PAINTSTRUCT ps{};
-        BeginPaint(h, &ps);
+        HDC dc = BeginPaint(h, &ps);
+        if (g_glass && g_w > 0 && g_h > 0) {
+            EnsureBuffers();
+            RECT full = { 0, 0, g_w, g_h };
+            HBRUSH blk = static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
+            FillRect(g_dcBg, &full, blk);
+            PaintChrome(g_dcBg);
+            DrawAll(g_dcBg, false);
+            BitBlt(dc, 0, 0, g_w, g_h, g_dcBg, 0, 0, SRCCOPY);
+        }
         EndPaint(h, &ps);
         return 0;
     }
@@ -829,7 +939,7 @@ LRESULT CALLBACK BarProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         Id id = HitTest(pt);
         if (id != g_hover) {
             g_hover = id;
-            Compose();
+            Repaint();
             std::wstring tip = TipFor(id);
             if (!tip.empty()) TipShow(tip, pt);
             else TipHide();
@@ -848,7 +958,7 @@ LRESULT CALLBACK BarProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         g_trackMouse = false;
         g_hover = Id::None;
         TipHide();
-        Compose();
+        Repaint();
         return 0;
     case WM_LBUTTONDOWN:
         g_pressed = g_hover;
@@ -865,7 +975,7 @@ LRESULT CALLBACK BarProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     }
     case WM_SETFOCUS:
         g_barFocus = true;
-        Compose();
+        Repaint();
         return 0;
     case WM_KEYDOWN:
         if (wp == VK_ESCAPE) bar::Hide();
@@ -887,11 +997,11 @@ LRESULT CALLBACK BarProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_TIMER:
         if (wp == TIMER_CLOCK) {
-            if (UpdateClockStrings()) Compose();
+            if (UpdateClockStrings()) Repaint();
         } else if (wp == TIMER_RAINBOW) {
             g_hue = fmodf(g_hue + 4.f, 360.f);
             UpdateAppColors();
-            Compose();
+            Repaint();
         } else if (wp == TIMER_TIP) {
             TipHide();
         } else if (wp == TIMER_ANIM) {
@@ -913,16 +1023,16 @@ void Activate(Id id, const POINT& pt) {
     case Id::MediaPrev:       actions::MediaPrev(); break;
     case Id::MediaPlay:       actions::MediaPlayPause(); break;
     case Id::MediaNext:       actions::MediaNext(); break;
-    case Id::VolIcon:         volume::ToggleMute(); RefreshVolume(); Compose(); break;
-    case Id::VolDown:         volume::SetVolume(volume::GetVolume() - 5); RefreshVolume(); Compose(); break;
-    case Id::VolUp:           volume::SetVolume(volume::GetVolume() + 5); RefreshVolume(); Compose(); break;
+    case Id::VolIcon:         volume::ToggleMute(); RefreshVolume(); Repaint(); break;
+    case Id::VolDown:         volume::SetVolume(volume::GetVolume() - 5); RefreshVolume(); Repaint(); break;
+    case Id::VolUp:           volume::SetVolume(volume::GetVolume() + 5); RefreshVolume(); Repaint(); break;
     case Id::VolTrack: {
         int tw = g_rcVolTrack.right - g_rcVolTrack.left;
         if (tw > 0) {
             int v = (pt.x - g_rcVolTrack.left) * 100 / tw;
             volume::SetVolume(v);
             RefreshVolume();
-            Compose();
+            Repaint();
         }
         break;
     }
@@ -1001,11 +1111,14 @@ void Show(bool fromHover) {
     g_dpi = GetDpiForWindow(g_hBar);
     if (g_dpi == 0) g_dpi = 96;
     Layout();
+    if (g_glass) ApplyGlass(false);
+    ApplyGlass(DecideGlass());
     g_animY = g_rcMon.top;
     g_animFromX = g_rcMon.right;
     g_animToX = g_rcMon.right - g_w;
     SetWindowPos(g_hBar, HWND_TOPMOST, g_animFromX, g_animY, g_w, g_h, SWP_NOACTIVATE);
-    Compose();
+    if (g_glass) InvalidateRect(g_hBar, nullptr, TRUE);
+    else Compose();
     ShowWindow(g_hBar, SW_SHOWNOACTIVATE);
     StartAnim(true);
     if (!fromHover) {
@@ -1045,7 +1158,7 @@ void Toggle(bool fromHover) {
             if (!g_navOrder.empty()) g_focusId = g_navOrder[0];
             SetForegroundWindow(g_hBar);
             SetFocus(g_hBar);
-            Compose();
+            Repaint();
             return;
         }
         Hide();
@@ -1057,7 +1170,9 @@ void Toggle(bool fromHover) {
 void OnConfigChanged() {
     if (!g_barVisible) return;
     Layout();
-    Compose();
+    if (g_glass) ApplyGlass(false);
+    ApplyGlass(DecideGlass());
+    Repaint();
 }
 
 bool Visible() {
