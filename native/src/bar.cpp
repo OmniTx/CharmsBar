@@ -483,7 +483,7 @@ void RenderFrame() {
     FillRect(g_dcMask, &full, blk);
     DrawAll(g_dcMask, true);
 
-    int baseAlpha = (g_glass || g_acrylic) ? 150 : g_bgAlpha;
+    int baseAlpha = g_acrylic ? 150 : g_bgAlpha;
     const int stride = g_w * 4;
     RECT acts[3];
     int nAct = 0;
@@ -510,7 +510,7 @@ void RenderFrame() {
             int mr = m[2], mg = m[1], mb = m[0];
             int mv = mr > mg ? (mr > mb ? mr : mb) : (mg > mb ? mg : mb);
             int a0 = baseAlpha;
-            if (g_glass || g_acrylic) {
+            if (g_acrylic) {
                 for (int i = 0; i < nAct; i++) {
                     if (x >= acts[i].left && x < acts[i].right && y >= acts[i].top && y < acts[i].bottom) {
                         a0 = 200;
@@ -542,7 +542,9 @@ void Compose() {
 
 bool DecideGlass() {
     const std::wstring& m = g_cfg.backgroundMode;
-    return IsWin11() && (m == L"Dark" || m == L"Light" || m == L"Custom");
+    if (m == L"Dark") return true;
+    if (m == L"Custom") return ContrastText(HexToRgb(g_cfg.customColor)) == RGB(255, 255, 255);
+    return false;
 }
 
 void Repaint() {
@@ -553,42 +555,24 @@ void Repaint() {
 
 void ApplyGlass(bool enable) {
     if (enable == g_glass) return;
-    auto setAttr = DynFn<SetWindowCompositionAttribute_t>(L"user32.dll", "SetWindowCompositionAttribute");
     LONG_PTR ex = GetWindowLongPtrW(g_hBar, GWL_EXSTYLE);
     if (enable) {
-        const std::wstring& m = g_cfg.backgroundMode;
-        unsigned long tint = 0xB41C1C1C;
-        if (m == L"Light") tint = 0xB4F2F2F2;
-        else if (m == L"Custom") {
-            COLORREF c = HexToRgb(g_cfg.customColor);
-            tint = 0xB4000000UL | (static_cast<unsigned long>(GetBValue(c)) << 16) |
-                   (static_cast<unsigned long>(GetGValue(c)) << 8) | static_cast<unsigned long>(GetRValue(c));
-        }
         SetWindowLongPtrW(g_hBar, GWL_EXSTYLE, ex & ~WS_EX_LAYERED);
-        ACCENT_POLICY ap{};
-        ap.AccentState = 4;
-        ap.AccentFlags = 2;
-        ap.GradientColor = tint;
-        WINCOMPATTRDATA d{};
-        d.Attrib = 19;
-        d.pvData = &ap;
-        d.cbData = sizeof(ap);
-        BOOL ok = setAttr ? setAttr(g_hBar, &d) : FALSE;
-        if (!ok) {
+        DWM_BLURBEHIND bb{};
+        bb.dwFlags = DWM_BB_ENABLE;
+        bb.fEnable = TRUE;
+        if (FAILED(DwmEnableBlurBehindWindow(g_hBar, &bb))) {
             SetWindowLongPtrW(g_hBar, GWL_EXSTYLE, ex);
             g_glass = false;
             return;
         }
         g_glass = true;
-        g_acrylic = true;
+        g_acrylic = false;
     } else {
-        ACCENT_POLICY ap{};
-        ap.AccentState = 0;
-        WINCOMPATTRDATA d{};
-        d.Attrib = 19;
-        d.pvData = &ap;
-        d.cbData = sizeof(ap);
-        if (setAttr) setAttr(g_hBar, &d);
+        DWM_BLURBEHIND bb{};
+        bb.dwFlags = DWM_BB_ENABLE;
+        bb.fEnable = FALSE;
+        DwmEnableBlurBehindWindow(g_hBar, &bb);
         SetWindowLongPtrW(g_hBar, GWL_EXSTYLE, ex | WS_EX_LAYERED);
         g_glass = false;
         g_acrylic = false;
@@ -955,8 +939,14 @@ LRESULT CALLBACK BarProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         PAINTSTRUCT ps{};
         HDC dc = BeginPaint(h, &ps);
         if (g_glass && g_w > 0 && g_h > 0) {
-            RenderFrame();
-            BitBlt(dc, 0, 0, g_w, g_h, g_dcOut, 0, 0, SRCCOPY);
+            EnsureBuffers();
+            RECT full = { 0, 0, g_w, g_h };
+            HBRUSH blk = CreateSolidBrush(RGB(0, 0, 0));
+            FillRect(g_dcBg, &full, blk);
+            DeleteObject(blk);
+            PaintChrome(g_dcBg);
+            DrawAll(g_dcBg, false);
+            BitBlt(dc, 0, 0, g_w, g_h, g_dcBg, 0, 0, SRCCOPY);
         }
         EndPaint(h, &ps);
         return 0;
