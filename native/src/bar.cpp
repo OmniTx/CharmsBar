@@ -228,9 +228,9 @@ void EnsureImage() {
     if (g_cfg.bgImage.empty()) return;
     if (GetFileAttributesW(g_cfg.bgImage.c_str()) == INVALID_FILE_ATTRIBUTES) return;
     int w = 0, h = 0;
-    HBITMAP h = DecodeImageFile(g_cfg.bgImage, &w, &h);
-    if (!h) return;
-    g_hbmImage = h;
+    HBITMAP bmp = DecodeImageFile(g_cfg.bgImage, &w, &h);
+    if (!bmp) return;
+    g_hbmImage = bmp;
     g_loadedImage = g_cfg.bgImage;
     g_imgW = w;
     g_imgH = h;
