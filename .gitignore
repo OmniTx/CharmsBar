@@ -1,0 +1,8 @@
+bin/
+*.obj
+*.pdb
+*.ilk
+CharmsSettings.ini
+update_temp.*
+update.bat
+.commandcode/
