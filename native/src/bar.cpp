@@ -347,15 +347,18 @@ void EnsureBuffers() {
 void DrawWindowsLogo(HDC hdc, RECT rc, COLORREF color) {
     int w = rc.right - rc.left;
     int h = rc.bottom - rc.top;
-    if (w < 8 || h < 8) return;
-    int gap = w / 9;
-    int paneW = (w - gap) / 2;
-    int paneH = (h - gap) / 2;
-    int tilt = h / 12;
-    int L = rc.left, T = rc.top;
+    int side = (w < h ? w : h);
+    side = side * 3 / 5;
+    if (side < 8) return;
+    int L = rc.left + (w - side) / 2;
+    int T = rc.top + (h - side) / 2;
+    int gap = side / 9;
+    int paneW = (side - gap) / 2;
+    int paneH = (side - gap) / 2;
+    int tilt = side / 12;
     int Mx = L + paneW, Mx2 = Mx + gap;
     int My = T + paneH, My2 = My + gap;
-    int R = L + w, B = T + h;
+    int R = L + side, B = T + side;
     POINT q[4];
     HBRUSH b = CreateSolidBrush(color);
     HGDIOBJ ob = SelectObject(hdc, b);
